@@ -15,4 +15,8 @@ The CONSTITUTION.md file contains all engineering rules and conventions that sho
 <!-- Add project-specific Claude overrides below this line -->
 <!-- These overrides will be preserved during dd-dm pull operations -->
 
+Read [contributor startup](docs/development.md), [architecture](docs/architecture.md),
+and [capability status](docs/capabilities.md) before implementation. Focused guides
+for development, budgeting, recovery, and QA live in `docs/skills/`.
+
 <!-- dd-dm:custom:end -->
