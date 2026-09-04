@@ -9,6 +9,7 @@ const num = (name: string): Column => ({ name, type: 'BIGINT' })
 const money = (name: string): Column => ({ name, type: 'DECIMAL(40,0)' })
 const json = (name: string): Column => ({ name, type: 'LONGTEXT', json: true })
 export const tables: Table[] = [
+  { name: 'budget_months', key: ['id'], columns: [id('id'), id('month'), id('legacyId')] },
   {
     name: 'budget_meta',
     key: ['id'],
@@ -131,6 +132,7 @@ INSERT INTO write_guard VALUES (1);
 `
 export function normalize(b: Budget): Record<string, Row[]> {
   const {
+    months,
     accounts,
     groups,
     categories,
@@ -145,12 +147,15 @@ export function normalize(b: Budget): Record<string, Row[]> {
   } = b
   return {
     budget_meta: [meta],
+    budget_months: months ?? [],
     accounts,
     category_groups: groups,
     categories,
     payees,
     transactions: transactions.map(({ splits: _, ...t }) => t),
-    splits: transactions.flatMap((t) => t.splits.map((s) => ({ ...s, transferId: s.transferId ?? null, transactionId: t.id }))),
+    splits: transactions.flatMap((t) =>
+      t.splits.map((s) => ({ ...s, transferId: s.transferId ?? null, transactionId: t.id })),
+    ),
     allocations,
     schedules: schedules.map((s) => ({ ...s, transaction: JSON.stringify(s.transaction) })),
     reconciliations: reconciliations.map(({ transactionIds: _, ...r }) => r),
@@ -162,13 +167,16 @@ export function normalize(b: Budget): Record<string, Row[]> {
   }
 }
 export function denormalize(rows: Record<string, Row[]>): unknown {
-  const splits=new Map<string,Row[]>()
-  for(const {transactionId,...split} of rows.splits ?? []) {
-    const key=String(transactionId), entries=splits.get(key) ?? []
-    entries.push(split);splits.set(key,entries)
+  const splits = new Map<string, Row[]>()
+  for (const { transactionId, ...split } of rows.splits ?? []) {
+    const key = String(transactionId),
+      entries = splits.get(key) ?? []
+    entries.push(split)
+    splits.set(key, entries)
   }
   return {
     ...rows.budget_meta?.[0],
+    months: rows.budget_months ?? [],
     accounts: rows.accounts,
     groups: rows.category_groups,
     categories: rows.categories,

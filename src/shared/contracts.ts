@@ -118,6 +118,9 @@ export const budgetSchema = z.object({
   currency: z.string().regex(/^[A-Z]{3}$/),
   revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   startMonth: monthSchema,
+  months: z
+    .array(z.object({ id: idSchema, month: monthSchema, legacyId: z.string().nullable() }))
+    .optional(),
   accounts: z.array(accountSchema),
   groups: z.array(groupSchema),
   categories: z.array(categorySchema),

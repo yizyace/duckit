@@ -12,6 +12,7 @@ export function emptyBudget(
     currency,
     revision: 0,
     startMonth,
+    months: [{ id: `month:${startMonth}`, month: startMonth, legacyId: null }],
     accounts: [],
     groups: [],
     categories: [],

@@ -17,6 +17,9 @@ export function validateBudget(input: unknown): string[] {
     }
     return found
   }
+  ids(budget.months ?? [], 'budget month')
+  if (new Set((budget.months ?? []).map((m) => m.month)).size !== (budget.months ?? []).length)
+    errors.push('Duplicate budget calendar month')
   const accounts = ids(budget.accounts, 'account')
   const groups = ids(budget.groups, 'group')
   const categories = ids(budget.categories, 'category')

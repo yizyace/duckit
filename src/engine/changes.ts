@@ -149,6 +149,13 @@ export function applyChanges(
         }
         break
       case 'allocation.put': {
+        budget.months ??= []
+        if (!budget.months.some((m) => m.month === change.value.month))
+          budget.months.push({
+            id: `month:${change.value.month}`,
+            month: change.value.month,
+            legacyId: null,
+          })
         const index = budget.allocations.findIndex(
           (row) => row.categoryId === change.value.categoryId && row.month === change.value.month,
         )

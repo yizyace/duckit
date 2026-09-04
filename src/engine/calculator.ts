@@ -73,6 +73,7 @@ export function calculateBudget(budget: Budget, from: string, to: string): Budge
   monthSchema.parse(to)
   if (from > to) throw new Error('Start month must not follow end month')
   let first = from < budget.startMonth ? from : budget.startMonth
+  for (const entry of budget.months ?? []) if (entry.month < first) first = entry.month
   const income = new Map<string, bigint>()
   const activity = new Map<string, Map<string, bigint>>()
   const uncategorized = new Map<string, bigint>()
