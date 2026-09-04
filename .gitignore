@@ -1,0 +1,17 @@
+node_modules/
+out/
+dist/
+release/
+resources/runtime/
+test-results/
+playwright-report/
+coverage/
+.DS_Store
+.env*
+*.ynab4
+*.ynab4.zip
+*.duckit
+*.ofx
+*.qfx
+*.csv
+*.dolt/

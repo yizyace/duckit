@@ -1,0 +1,20 @@
+appId: app.duckit.desktop
+productName: Duckit
+artifactName: Duckit-${version}-${arch}.${ext}
+directories:
+  output: release
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: resources/runtime/${arch}
+    to: runtime
+mac:
+  category: public.app-category.finance
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  notarize: false
+publish: null
