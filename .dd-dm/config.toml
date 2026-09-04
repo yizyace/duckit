@@ -1,0 +1,8 @@
+[modules]
+enabled = [
+    "GIT_ATOMIC_COMMITS",
+    "GIT_CONVENTIONAL_COMMITS",
+]
+
+[local]
+custom_modules = []
