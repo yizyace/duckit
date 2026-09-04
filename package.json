@@ -21,7 +21,9 @@
     "check": "npm run typecheck && npm test && npm run build",
     "format": "prettier --write src tests scripts docs *.json *.ts *.yml .github",
     "format:check": "prettier --check src tests scripts docs *.json *.ts *.yml .github",
-    "package:mac": "npm run check && electron-builder --mac --arm64 --x64 --publish never"
+    "package:mac": "npm run runtime:fetch && npm run check && electron-builder --mac --arm64 --x64 --publish never",
+    "runtime:fetch": "node scripts/runtime-fetch.ts",
+    "test:transport": "node scripts/transport-proof.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.23",

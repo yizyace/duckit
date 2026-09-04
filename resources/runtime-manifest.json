@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "doltVersion": "2.1.0",
+  "gitVersion": "2.53.0",
+  "gcmVersion": "2.9.0",
+  "gitLfsVersion": "3.7.1",
+  "platforms": {
+    "arm64": {
+      "dolt": {
+        "url": "https://github.com/dolthub/dolt/releases/download/v2.1.0/dolt-darwin-arm64.tar.gz",
+        "sha256": "aef502bb5ee277da60e1bc387e7c0989cbc57ac46c8f36645e8225c408408921",
+        "stripComponents": 1
+      },
+      "git": {
+        "url": "https://github.com/desktop/dugite-native/releases/download/v2.53.0-4/dugite-native-v2.53.0-4098283-macOS-arm64.tar.gz",
+        "sha256": "f9dc64635a5b62fbd7ad95db73268bbb8912255ac516d65d37bf7af22fcb8ffe",
+        "stripComponents": 0
+      }
+    },
+    "x64": {
+      "dolt": {
+        "url": "https://github.com/dolthub/dolt/releases/download/v2.1.0/dolt-darwin-amd64.tar.gz",
+        "sha256": "3c2a10a48c55a412e0c3e1424fffeac995e9c0d7124ad4d2406d0252b63c8f3f",
+        "stripComponents": 1
+      },
+      "git": {
+        "url": "https://github.com/desktop/dugite-native/releases/download/v2.53.0-4/dugite-native-v2.53.0-4098283-macOS-x64.tar.gz",
+        "sha256": "ae6686718aa34f4140424db16b92a47dcffd6d1f312eb8b5f3b267f7404e2680",
+        "stripComponents": 0
+      }
+    }
+  },
+  "notices": [
+    {
+      "name": "Git-COPYING",
+      "url": "https://raw.githubusercontent.com/git/git/v2.53.0/COPYING",
+      "sha256": "5b2198d1645f767585e8a88ac0499b04472164c0d2da22e75ecf97ef443ab32e"
+    },
+    {
+      "name": "Dugite-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/desktop/dugite-native/4098283a7ecb8a227b9d43580336c78a06f90e5d/LICENSE.md",
+      "sha256": "db296f2f7f35bca3a174efb0eb392b3b17bd94b341851429a3dff411b1c2fc73"
+    },
+    {
+      "name": "GCM-LICENSE",
+      "url": "https://raw.githubusercontent.com/git-ecosystem/git-credential-manager/v2.9.0/LICENSE",
+      "sha256": "b47f1a8a744ecdc7a3da35804f88552805d33f51a726b87a2105acdfae406b07"
+    },
+    {
+      "name": "Git-LFS-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/git-lfs/git-lfs/v3.7.1/LICENSE.md",
+      "sha256": "4fae9062ab5cdd5fb15486b728534d8aded8b4ae9d84b6d66a956f5162c366b6"
+    },
+    {
+      "name": "git-v2.53.0-source.tar.gz",
+      "url": "https://codeload.github.com/git/git/tar.gz/refs/tags/v2.53.0",
+      "sha256": "0492bcd8a9fc99bedca75dbec7c8c15b24dd1501c82d4518294ee0850f91f219"
+    },
+    {
+      "name": "dugite-native-source.tar.gz",
+      "url": "https://codeload.github.com/desktop/dugite-native/tar.gz/4098283a7ecb8a227b9d43580336c78a06f90e5d",
+      "sha256": "88ca6b778c3daac6c58bb760cd41099b1f348b07ef3d8daf551269a142bccb5f"
+    }
+  ]
+}
