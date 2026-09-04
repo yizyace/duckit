@@ -78,6 +78,7 @@ export const tables: Table[] = [
       money('amount'),
       id('categoryId'),
       id('incomeMonth'),
+      id('transferId'),
       text('memo'),
     ],
   },
@@ -149,7 +150,7 @@ export function normalize(b: Budget): Record<string, Row[]> {
     categories,
     payees,
     transactions: transactions.map(({ splits: _, ...t }) => t),
-    splits: transactions.flatMap((t) => t.splits.map((s) => ({ ...s, transactionId: t.id }))),
+    splits: transactions.flatMap((t) => t.splits.map((s) => ({ ...s, transferId: s.transferId ?? null, transactionId: t.id }))),
     allocations,
     schedules: schedules.map((s) => ({ ...s, transaction: JSON.stringify(s.transaction) })),
     reconciliations: reconciliations.map(({ transactionIds: _, ...r }) => r),
@@ -161,6 +162,11 @@ export function normalize(b: Budget): Record<string, Row[]> {
   }
 }
 export function denormalize(rows: Record<string, Row[]>): unknown {
+  const splits=new Map<string,Row[]>()
+  for(const {transactionId,...split} of rows.splits ?? []) {
+    const key=String(transactionId), entries=splits.get(key) ?? []
+    entries.push(split);splits.set(key,entries)
+  }
   return {
     ...rows.budget_meta?.[0],
     accounts: rows.accounts,
@@ -169,9 +175,7 @@ export function denormalize(rows: Record<string, Row[]>): unknown {
     payees: rows.payees,
     transactions: rows.transactions?.map((t) => ({
       ...t,
-      splits: rows.splits
-        ?.filter((s) => s.transactionId === t.id)
-        .map(({ transactionId: _, ...s }) => s),
+      splits: splits.get(String(t.id)) ?? [],
     })),
     allocations: rows.allocations,
     schedules: rows.schedules?.map((s) => ({

@@ -65,6 +65,7 @@ export const splitSchema = z.object({
   amount: minorSchema,
   categoryId: idSchema.nullable(),
   incomeMonth: monthSchema.nullable(),
+  transferId: idSchema.nullable().optional(),
   memo: z.string().max(10000).default(''),
 })
 export const transactionSchema = z.object({
