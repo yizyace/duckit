@@ -13,6 +13,7 @@ const api: DuckitAPI = {
   restoreBackup: (input) => ipcRenderer.invoke('duckit:restoreBackup', input),
   chooseBackupDestination: () => ipcRenderer.invoke('duckit:chooseBackupDestination'),
   connectGitHub: (input) => ipcRenderer.invoke('duckit:connectGitHub', input),
+  disconnectGitHub: () => ipcRenderer.invoke('duckit:disconnectGitHub'),
   sync: () => ipcRenderer.invoke('duckit:sync'),
   getConflict: () => ipcRenderer.invoke('duckit:getConflict'),
   resolveConflict: (input) => ipcRenderer.invoke('duckit:resolveConflict', input),

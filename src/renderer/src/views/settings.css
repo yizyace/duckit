@@ -1,0 +1,96 @@
+.startup {
+  padding: 80px;
+  max-width: 700px;
+  margin: auto;
+}
+.onboarding {
+  max-width: 760px;
+}
+.panel > .form-grid,
+.panel > .toolbar,
+.panel > .field-help,
+.panel > p,
+.panel > .page-stack {
+  margin: 18px 24px;
+}
+.demo-notice {
+  margin-bottom: 18px;
+}
+.import-dialog {
+  max-width: 850px;
+}
+.import-body {
+  max-height: 65vh;
+  overflow: auto;
+  display: grid;
+  gap: 16px;
+}
+.evidence-list > div {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+.evidence-list dd {
+  overflow-wrap: anywhere;
+}
+.conflict-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.conflict-snapshot {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.conflict-snapshot details {
+  min-width: 0;
+}
+.conflict-snapshot .field-help {
+  overflow-wrap: anywhere;
+}
+.snapshot-allocations {
+  max-height: 350px;
+}
+.settings-view .data-table caption {
+  text-align: left;
+  padding: 16px;
+}
+.reports-chart {
+  overflow-x: auto;
+}
+.stat-card {
+  min-width: 0;
+}
+.stat-value {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 750px) {
+  .conflict-columns {
+    grid-template-columns: 1fr;
+  }
+}
+.snapshot-details {
+  min-width: 220px;
+  white-space: normal;
+}
+.snapshot-details dd,
+.snapshot-evidence {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.snapshot-details ul {
+  padding-left: 18px;
+  list-style: disc;
+}
+.statement-choices {
+  display: grid;
+  gap: 10px;
+  min-width: 220px;
+}
+.conflict-snapshot {
+  align-content: start;
+}

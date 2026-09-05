@@ -10,7 +10,7 @@ test('opens an isolated and sandboxed desktop window', async () => {
   })
   try {
     const page = await app.firstWindow()
-    await expect(page.getByRole('heading', { name: 'Duckit', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Budget', exact: true })).toBeVisible()
     expect(
       await page.evaluate(() => typeof (window as unknown as { require?: unknown }).require),
     ).toBe('undefined')

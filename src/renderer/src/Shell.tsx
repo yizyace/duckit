@@ -269,41 +269,43 @@ export function Shell({ budget, status, view, setView, children, actions, subtit
       </aside>
 
       <div className="workspace">
-        <div className="workspace-topbar">
-          <p>
-            <ShieldCheck aria-hidden="true" />
-            <span>Your budget, on your Mac</span>
-          </p>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Use ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}
-            title={`Use ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}
-            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-          >
-            {resolvedTheme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
-          </Button>
-        </div>
-        <header className="workspace-header">
-          <div className="min-w-0">
-            <p className="eyebrow">
-              {selectedAccount
-                ? selectedAccount.onBudget
-                  ? 'Budget account'
-                  : 'Tracking account'
-                : 'Your workspace'}
+        <header>
+          <div className="workspace-topbar">
+            <p>
+              <ShieldCheck aria-hidden="true" />
+              <span>Your budget, on your Mac</span>
             </p>
-            <h1 ref={heading} tabIndex={-1}>
-              {title}
-            </h1>
-            <p className="page-subtitle">
-              {subtitle ??
-                (selectedAccount
-                  ? 'Every transaction has a place.'
-                  : (descriptions[view] ?? descriptions.budget))}
-            </p>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Use ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}
+              title={`Use ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            >
+              {resolvedTheme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+            </Button>
           </div>
-          {actions && <div className="header-actions">{actions}</div>}
+          <div className="workspace-header">
+            <div className="min-w-0">
+              <p className="eyebrow">
+                {selectedAccount
+                  ? selectedAccount.onBudget
+                    ? 'Budget account'
+                    : 'Tracking account'
+                  : 'Your workspace'}
+              </p>
+              <h1 ref={heading} tabIndex={-1}>
+                {title}
+              </h1>
+              <p className="page-subtitle">
+                {subtitle ??
+                  (selectedAccount
+                    ? 'Every transaction has a place.'
+                    : (descriptions[view] ?? descriptions.budget))}
+              </p>
+            </div>
+            {actions && <div className="header-actions">{actions}</div>}
+          </div>
         </header>
         <main
           id="main-content"

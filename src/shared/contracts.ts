@@ -250,6 +250,7 @@ export type DuckitAPI = {
   restoreBackup(input: { id: string; expectedRevision: number }): Promise<OperationResult<AppState>>
   chooseBackupDestination(): Promise<OperationResult<boolean>>
   connectGitHub(input: { repository: string }): Promise<OperationResult<void>>
+  disconnectGitHub(): Promise<OperationResult<void>>
   sync(): Promise<OperationResult<AppState>>
   getConflict(): Promise<OperationResult<Conflict | null>>
   resolveConflict(input: {
