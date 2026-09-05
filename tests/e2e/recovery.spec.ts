@@ -233,7 +233,8 @@ test('reviews complete conflict details and refreshes a stale choice without an 
       },
     })
     local.allocations[0]!.overspending = 'Confined'
-    local.allocations[0]!.note = 'Synthetic carryover choice'
+    // A long unbroken reference makes overflow independent of platform font metrics.
+    local.allocations[0]!.note = `Synthetic carryover choice ${'SYNTHETIC_REFERENCE_'.repeat(12)}`
     const conflict: Conflict = {
       localRevision: 'synthetic-local-v1',
       remoteRevision: 'synthetic-remote-v1',
@@ -284,14 +285,25 @@ test('reviews complete conflict details and refreshes a stale choice without an 
     await expect(
       mac.getByRole('row').filter({ hasText: 'Synthetic carryover choice' }),
     ).toContainText('Carry deficits')
+    const allocationRegion = mac.getByRole('region', { name: 'This Mac snapshot allocations' })
+    await expect
+      .poll(() => allocationRegion.evaluate((element) => element.scrollWidth - element.clientWidth))
+      .toBeGreaterThan(200)
+    await app.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0]!
+      window.show()
+      window.focus()
+    })
     await mac.getByText('Review every allocation', { exact: true }).focus()
     await page.keyboard.press('Tab')
-    const allocationRegion = mac.getByRole('region', { name: 'This Mac snapshot allocations' })
     await expect(allocationRegion).toBeFocused()
+    await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true)
     await page.keyboard.press('ArrowRight')
     await expect
       .poll(() => allocationRegion.evaluate((element) => element.scrollLeft))
       .toBeGreaterThan(0)
+    await page.keyboard.press('ArrowLeft')
+    await expect.poll(() => allocationRegion.evaluate((element) => element.scrollLeft)).toBe(0)
     const audit = await new AxeBuilder({ page }).setLegacyMode(true).analyze()
     expect(audit.violations).toEqual([])
     await page.screenshot({ path: join(tmpdir(), 'duckit-conflict-review.png'), fullPage: true })
