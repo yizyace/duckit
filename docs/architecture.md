@@ -63,6 +63,14 @@ engine for calculations and validation. Main remains authoritative for writes.
    intact and reports that history needs retrying. Local-save status and remote
    status are independent fields.
 
+A native process failure after a write does not establish rollback. Main checks the
+command receipt before reporting the outcome: a matching receipt confirms the
+committed edit; a readable absent receipt confirms that command was not saved. If
+the receipt cannot be read, the result explicitly remains unconfirmed. A same-ID
+retry returns current state, clears an earlier local error and retries its
+checkpoint without applying the command again. A refresh failure after confirmed
+commit is reported as saved with an unavailable view, rather than as a failed save.
+
 The selected application-data root contains `active.json`, `budgets/<uuid>/`,
 `runtime-state/`, backup storage and machine-local preferences. `sync.json` binds an
 optional remote identity to a budget; `sync-review.json` identifies a retained
