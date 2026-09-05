@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { zipSync, unzipSync, strToU8 } from 'fflate'
 import { mkdtemp, rm, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { demoBudget } from '../src/shared/demo'
-import { importArchive, exportArchive } from '../src/main/recovery/archive'
+import { importArchive, exportArchive, digest } from '../src/main/recovery/archive'
 import { Workspace } from '../src/main/storage/workspace'
 describe('portable archives and candidate activation', () => {
   it('checks exact normalized data and rejects corruption, unknown versions and unrelated files', () => {
@@ -21,6 +21,17 @@ describe('portable archives and candidate activation', () => {
       JSON.stringify({ format: 'duckit', version: 2, schemaVersion: 2 }),
     )
     expect(() => importArchive(zipSync(unsupported))).toThrow('Unsupported')
+  })
+  it('exports byte-identical archives for the same budget regardless of wall-clock time', () => {
+    const b = demoBudget()
+    const before = digest(exportArchive(b))
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(Date.now() + 5000)
+      expect(digest(exportArchive(b))).toBe(before)
+    } finally {
+      vi.useRealTimers()
+    }
   })
   it('leaves active budget unchanged until a valid candidate is atomically activated', async () => {
     const root = await mkdtemp(join(tmpdir(), 'duckit-recovery-'))
