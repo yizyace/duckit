@@ -14,7 +14,7 @@
     "demo": "DUCKIT_DEMO=1 electron-vite dev --watch",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
