@@ -147,6 +147,7 @@ export const changeSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('category.put'), value: categorySchema }),
   z.object({ type: z.literal('group.put'), value: groupSchema }),
   z.object({ type: z.literal('payee.put'), value: payeeSchema }),
+  z.object({ type: z.literal('provenance.put'), value: provenanceSchema }),
   z.object({ type: z.literal('transaction.put'), value: transactionSchema }),
   z.object({ type: z.literal('transaction.delete'), ids: z.array(idSchema).min(1) }),
   z.object({
@@ -206,6 +207,18 @@ export type ImportPreview = {
     payee: string
     amount: string
     disposition: 'new' | 'duplicate' | 'uncertain'
+    memo?: string
+    bankId?: string | null
+    matches?: {
+      id: string
+      date: string
+      payee: string
+      approvalId: string
+      memo?: string
+      category?: string
+    }[]
+    duplicateReason?: string
+    skipApprovalId?: string
   }[]
 }
 export type BackupInfo = { id: string; createdAt: string; revision: number }

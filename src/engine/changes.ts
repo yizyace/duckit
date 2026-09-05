@@ -163,6 +163,9 @@ export function applyChanges(
         else budget.allocations[index] = change.value
         break
       }
+      case 'provenance.put':
+        upsert(budget.provenance, change.value)
+        break
       case 'schedule.put':
         upsert(budget.schedules, change.value)
         revive('schedule', change.value.id)
