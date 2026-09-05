@@ -298,6 +298,25 @@ describe('statement preview and approval', () => {
     expect(preview('Date,Amount,Reference Number\n2026-09-04,-1,POS').rows[0]!.bankId).toBe(null)
   })
 
+  it('offers an explicit choice when a bank ID repeats within one statement', () => {
+    const budget = blank()
+    const candidate = preview(ofx(item() + item()), budget, 'a.ofx')
+    expect(candidate.rows.map((row) => row.disposition)).toEqual(['new', 'uncertain'])
+    expect(candidate.preview.errors).toEqual([])
+    expect(candidate.preview.transactions).toBe(2)
+    const row = candidate.rows[1]!
+    expect(row.duplicateReason).toContain('repeats an earlier bank ID')
+    expect(row.matches).toEqual([])
+    expect(candidate.preview.warnings.join()).toContain('1 row repeats an earlier bank ID')
+    expect(() => applyStatement(candidate, budget, [])).toThrow('exactly one')
+    const both = applyStatement(candidate, budget, [row.id])
+    expect(both.transactions).toHaveLength(2)
+    // A demonstrably non-unique ID is not stored twice, so later statements still preview.
+    expect(both.transactions.map((entry) => entry.bankId)).toEqual(['bank-1', null])
+    expect(preview('Date,Amount\n2026-09-05,-1', both).rows[0]!.disposition).toBe('new')
+    expect(applyStatement(candidate, budget, [row.skipApprovalId]).transactions).toHaveLength(1)
+  })
+
   it('deduplicates bank IDs only in the selected account and preserves rows with distinct IDs', () => {
     const budget = blank()
     existing(budget, { bankId: 'bank-1' })
@@ -306,17 +325,18 @@ describe('statement preview and approval', () => {
       budget,
       'a.ofx',
     )
-    expect(candidate.rows.map((row) => row.disposition)).toEqual(['duplicate', 'new', 'duplicate'])
-    expect(applyStatement(candidate, budget, []).transactions).toHaveLength(2)
+    expect(candidate.rows.map((row) => row.disposition)).toEqual(['duplicate', 'new', 'uncertain'])
+    const repeat = candidate.rows[2]!
+    expect(applyStatement(candidate, budget, [repeat.skipApprovalId]).transactions).toHaveLength(2)
     const other = preview(ofx(item('bank-1')), budget, 'a.ofx', 'savings')
     expect(other.rows[0]!.disposition).toBe('new')
     expect(applyStatement(other, budget, []).transactions).toHaveLength(2)
     expect(preview(ofx(item('bank-1', '-99')), budget, 'a.ofx').preview.errors.join()).toContain(
       'different amount',
     )
-    expect(
-      preview(ofx(item('same') + item('same', '-99')), blank(), 'a.ofx').preview.errors.join(),
-    ).toContain('conflicting fields')
+    const conflicting = preview(ofx(item('same') + item('same', '-99')), blank(), 'a.ofx')
+    expect(conflicting.preview.errors.join()).toContain('conflicting fields')
+    expect(conflicting.rows.map((row) => row.disposition)).toEqual(['new', 'duplicate'])
   })
 
   it('requires explicit uncertain choices and matching preserves the entered transaction', () => {
