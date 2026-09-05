@@ -96,7 +96,13 @@ can be undone without replacing database history.
 
 Portable `.duckit` archives carry versioned normalized data and checksums, excluding
 credentials and active remote bindings. Native backups are verified in temporary
-locations before promotion. Restore validates a separate database, advances the
+locations before promotion. New backup metadata uses `checksumVersion: 2`: unordered
+SQL collections and reconciliation membership are canonicalized, while posted and
+scheduled split positions remain checksum-significant. Missing or explicit version
+1 retains the historical checksum for restoration; that older checksum cannot
+verify split order. Legacy metadata is never relabeled as version 2, and a legacy
+snapshot cannot suppress creation of a newly verified version 2 snapshot. Unknown
+checksum versions are not offered for restoration. Restore validates a separate database, advances the
 application revision and retires undo history from the older snapshot before
 activation. A failed backup must retain the last good snapshot. A failure after a
 successful save or activation must be reported as such. Detailed rules and tests
