@@ -10,6 +10,11 @@ pointer for whole-budget import/restore/migration. Keep the original archive int
 legacy IDs and relevant tombstones. Never create balance adjustments based on
 legacy cached totals. Reject ambiguous revision chains and unsupported schemas.
 
+Complete legacy parent arrays establish split order separately from current child revisions.
+Changed-child-only arrays must not reorder unchanged splits; reject unresolved new
+positions instead of guessing. Read the reconstruction compatibility rule and tests
+before changing this behavior; it is not an upstream incremental-format specification.
+
 Statement imports retain an immutable main-owned preview and enter the ordinary
 undoable command path with provenance. Use the
 [import boundaries](../../../docs/architecture.md#imports-and-recovery) and
@@ -22,6 +27,11 @@ Preserve both diverged histories and verify reviewed hashes before resolution.
 Sync cancellation must leave the active local database usable; carry abort signals
 only on sync-owned handles/callbacks and create a new manager to resume. Local-save
 success remains distinct from later checkpoint, backup or upload failure.
+
+Use [semantic domain comparison](../../../src/main/storage/canonical-budget.ts) for
+native budget snapshot equality and backup checksums. Only unordered collections may be sorted; posted
+and scheduled splits remain ordered. A changed backup checksum encoding needs an
+explicit version and a reader for existing snapshots.
 
 - Legacy reconstruction starts in [YNAB import](../../../src/main/imports/ynab.ts),
   with [causal reconstruction](../../../src/main/imports/ynab-reconstruction.ts) and

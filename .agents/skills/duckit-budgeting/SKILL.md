@@ -13,8 +13,10 @@ category/income treatment. Credit accounts preserve Classic debt categories.
 
 Income assigned to next month is not available this month. Allocations can be
 negative and can exist in future months. Overspending choice is sparse: null or
-missing inherits the preceding choice, initially `AffectsBuffer`. `Confined` carries
-a negative category balance; `AffectsBuffer` charges next month's available budget.
+missing inherits the preceding choice. Initially, ordinary categories use
+`AffectsBuffer` and Classic debt categories use `Confined`. An explicit later choice
+overrides either default. `Confined` carries a negative category balance;
+`AffectsBuffer` charges next month's available budget.
 Historical edits must recompute every affected subsequent month.
 
 Preserve ordered posted and scheduled splits. A transfer may occupy a whole
