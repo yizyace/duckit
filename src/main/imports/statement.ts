@@ -212,7 +212,8 @@ export function previewStatement(
       duplicates: rows.filter((row) => row.disposition === 'duplicate').length,
       uncertain: rows.filter((row) => row.disposition === 'uncertain').length,
     },
-    rows: rows.map((row) => ({ ...row })),
+    // repeatsBankId stays in main; the renderer contract does not declare it.
+    rows: rows.map(({ repeatsBankId: _internal, ...row }) => row),
   }
   return freeze({
     preview,
