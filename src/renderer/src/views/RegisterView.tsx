@@ -20,6 +20,13 @@ import { AccountEditor } from './AccountEditor'
 import { TransactionEditor } from './TransactionEditor'
 import { ScheduleView } from './ScheduleView'
 import {
+  prepareRegister,
+  registerBalances,
+  selectRegisterRows,
+  type RegisterRow,
+  type RegisterSort,
+} from './register-model'
+import {
   assignment,
   AssignmentOptions,
   CommandNotice,
@@ -31,14 +38,6 @@ import {
 } from './register-shared'
 import './register.css'
 
-type RegisterRow = {
-  transaction: Transaction
-  date: string
-  account: string
-  payee: string
-  category: string
-  amount: string
-}
 const features = tableFeatures({})
 const helper = createColumnHelper<typeof features, RegisterRow>()
 type BulkAction = 'clear' | 'unclear' | 'delete' | 'categorize'
@@ -373,7 +372,7 @@ export function RegisterView({
   const [accountEditor, setAccountEditor] = useState<Account | 'new' | null>(null)
   const [bulk, setBulk] = useState<BulkAction | null>(null)
   const [reconciling, setReconciling] = useState(false)
-  const [sort, setSort] = useState<{ key: 'date' | 'payee' | 'amount'; ascending: boolean }>({
+  const [sort, setSort] = useState<RegisterSort>({
     key: 'date',
     ascending: false,
   })
@@ -420,62 +419,11 @@ export function RegisterView({
     window.addEventListener('keydown', keyboard)
     return () => window.removeEventListener('keydown', keyboard)
   }, [budget.accounts.length])
-  const rows = useMemo(() => {
-    const links = transferLegs(budget.transactions)
-    const text = query.trim().toLocaleLowerCase()
-    return budget.transactions
-      .filter((transaction) => !filterAccount || transaction.accountId === filterAccount)
-      .map((transaction) => {
-        const link =
-          transaction.transferId ?? transaction.splits.find((split) => split.transferId)?.transferId
-        const partner = link
-          ? links.get(link)?.find((leg) => leg.transaction.id !== transaction.id)
-          : undefined
-        const category =
-          transaction.splits.length > 1
-            ? 'Split transaction'
-            : transaction.splits[0]?.categoryId
-              ? (budget.categories.find((row) => row.id === transaction.splits[0]!.categoryId)
-                  ?.name ?? 'Uncategorized')
-              : transaction.splits[0]?.incomeMonth
-                ? `Income: ${transaction.splits[0].incomeMonth}`
-                : link
-                  ? 'Transfer'
-                  : 'Uncategorized'
-        return {
-          transaction,
-          date: transaction.date,
-          account:
-            budget.accounts.find((account) => account.id === transaction.accountId)?.name ?? '',
-          payee: partner
-            ? `Transfer: ${budget.accounts.find((account) => account.id === partner.transaction.accountId)?.name ?? 'Account'}`
-            : (budget.payees.find((payee) => payee.id === transaction.payeeId)?.name ?? 'No payee'),
-          category,
-          amount: transaction.amount,
-        }
-      })
-      .filter(
-        (row) =>
-          !text ||
-          `${row.date} ${row.account} ${row.payee} ${row.category} ${row.transaction.memo} ${money(row.amount, budget.currency)} ${row.transaction.splits.map((split) => `${split.memo} ${budget.categories.find((category) => category.id === split.categoryId)?.name ?? ''}`).join(' ')}`
-            .toLocaleLowerCase()
-            .includes(text),
-      )
-      .sort((left, right) => {
-        const comparison =
-          sort.key === 'amount'
-            ? BigInt(left.amount) < BigInt(right.amount)
-              ? -1
-              : BigInt(left.amount) > BigInt(right.amount)
-                ? 1
-                : 0
-            : left[sort.key].localeCompare(right[sort.key])
-        return (
-          (sort.ascending ? comparison : -comparison) ||
-          left.transaction.id.localeCompare(right.transaction.id)
-        )
-      })
-  }, [budget, filterAccount, query, sort])
+  const prepared = useMemo(() => prepareRegister(budget), [budget])
+  const rows = useMemo(
+    () => selectRegisterRows(prepared, filterAccount, query, sort),
+    [prepared, filterAccount, query, sort],
+  )
   const toggle = (id: string) =>
     setSelection((selected) => {
       const next = new Set(selected)
@@ -589,13 +537,15 @@ export function RegisterView({
     overscan: 8,
   })
   const items = virtualizer.getVirtualItems()
+  const through = today()
+  const totals = useMemo(() => registerBalances(budget, through), [budget, through])
   const filteredAccounts = currentAccount ? [currentAccount] : budget.accounts
   const balance = filteredAccounts.reduce(
-    (sum, account) => sum + accountBalance(budget, account.id, today()),
+    (sum, account) => sum + totals.get(account.id)!.balance,
     0n,
   )
   const clearedBalance = filteredAccounts.reduce(
-    (sum, account) => sum + accountBalance(budget, account.id, today(), true),
+    (sum, account) => sum + totals.get(account.id)!.cleared,
     0n,
   )
 
