@@ -319,6 +319,18 @@ describe('statement preview and approval', () => {
     expect(applyStatement(candidate, budget, [row.skipApprovalId]).transactions).toHaveLength(1)
   })
 
+  it('warns when a statement repeats a bank ID the account already holds', () => {
+    const budget = blank()
+    existing(budget, { bankId: 'bank-1' })
+    const candidate = preview(ofx(item() + item()), budget, 'a.ofx')
+    expect(candidate.rows.map((row) => row.disposition)).toEqual(['duplicate', 'duplicate'])
+    expect(candidate.preview.errors).toEqual([])
+    expect(candidate.preview.warnings.join()).toContain(
+      '1 row repeats a bank ID that already exists in this account: row 2 (2026-09-04 Shop & Co -12.34). If these are separate purchases, add the second by hand.',
+    )
+    expect(applyStatement(candidate, budget, []).transactions).toEqual(budget.transactions)
+  })
+
   it('deduplicates bank IDs only in the selected account and preserves rows with distinct IDs', () => {
     const budget = blank()
     existing(budget, { bankId: 'bank-1' })
