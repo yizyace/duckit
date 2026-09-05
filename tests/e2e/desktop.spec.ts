@@ -21,6 +21,7 @@ test('opens an isolated and sandboxed desktop window', async () => {
   }
 })
 test('refuses to navigate before a budget exists', async () => {
+  test.setTimeout(120000) // Creating the budget validates a candidate and backs it up.
   const root = await mkdtemp(join(tmpdir(), 'duckit-onboarding-nav-e2e-'))
   const app = await electron.launch({
     args: ['.', `--user-data-dir=${root}`],
@@ -40,6 +41,21 @@ test('refuses to navigate before a budget exists', async () => {
     for (const name of ['Budget', 'All accounts', 'Reports', 'Settings'])
       await expect(page.getByRole('button', { name, exact: true })).toBeDisabled()
     await expect(page.locator('[aria-current="page"]')).toHaveCount(0)
+    // The pinned heading would hide a still-live shortcut, so let one land on the
+    // welcome screen and check where the first real view opens.
+    await page.keyboard.press('Meta+3')
+    await page.getByLabel('Budget name', { exact: true }).fill('Synthetic onboarding budget')
+    await page.getByRole('button', { name: 'Create a budget', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Budget', exact: true, level: 1 })).toBeVisible({
+      timeout: 30000,
+    })
+    const reports = page.getByRole('button', { name: 'Reports', exact: true })
+    await expect(reports).toBeEnabled()
+    await expect(reports).toHaveAttribute('aria-keyshortcuts', 'Meta+3')
+    await expect(page.getByRole('button', { name: 'Budget', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   } finally {
     await app.close()
     await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
