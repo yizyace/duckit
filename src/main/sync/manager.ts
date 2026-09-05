@@ -6,6 +6,7 @@ import { escape } from 'mysql2'
 import { z } from 'zod'
 import { assertValidBudget } from '../../engine'
 import type { Budget, Conflict, Status } from '../../shared/contracts'
+import { canonicalBudget } from '../storage/canonical-budget'
 import { Database } from '../storage/database'
 import { Workspace } from '../storage/workspace'
 import { atomicWrite } from '../storage/atomic-file'
@@ -48,22 +49,6 @@ const allTables = [
 ].sort()
 const hashSchema = z.string().regex(/^[0-9a-v]{32}$/)
 const quote = (value: string) => `\`${value.replaceAll('`', '``')}\``
-
-/** Array order is not persisted by normalized tables. Object values and exact decimals are. */
-function canonical(value: unknown): string {
-  function stable(v: unknown): unknown {
-    if (Array.isArray(v))
-      return v.map(stable).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-    if (v && typeof v === 'object')
-      return Object.fromEntries(
-        Object.entries(v)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([key, item]) => [key, stable(item)]),
-      )
-    return v
-  }
-  return JSON.stringify(stable(value))
-}
 
 /** The service must serialize these methods with edits through Workspace.serial. */
 export class SyncManager {
@@ -245,7 +230,7 @@ export class SyncManager {
     const names = (await database.query('SHOW TABLES;'))
       .map((row) => String(Object.values(row)[0]))
       .sort()
-    if (canonical(names) !== canonical(allTables))
+    if (JSON.stringify([...names].sort()) !== JSON.stringify(allTables))
       throw new Error('The budget database uses an unsupported schema')
     return budget
   }
@@ -346,8 +331,8 @@ export class SyncManager {
     const verified = await this.clone(binding, token)
     if (
       (await this.head(verified)) !== (await this.head(candidate)) ||
-      canonical(await this.validated(verified, binding.budgetId)) !==
-        canonical(await this.validated(candidate, binding.budgetId))
+      canonicalBudget(await this.validated(verified, binding.budgetId)) !==
+        canonicalBudget(await this.validated(candidate, binding.budgetId))
     )
       throw new Error(
         'Remote verification did not match the uploaded budget. Local history was retained.',
@@ -532,7 +517,10 @@ export class SyncManager {
     } else if (ancestor === localHash) {
       await this.io.dolt(['merge', '--ff-only', remoteHash], candidate.directory, token)
       const incoming = await this.validated(candidate, binding.budgetId)
-      if (incoming.revision <= local.revision && canonical(incoming) !== canonical(local)) {
+      if (
+        incoming.revision <= local.revision &&
+        canonicalBudget(incoming) !== canonicalBudget(local)
+      ) {
         await this.bump(candidate, incoming, local.revision)
         remoteGitHash = await this.push(candidate, binding, token, remoteGitHash)
       }
@@ -632,7 +620,8 @@ export class SyncManager {
         if (!allTables.includes(table)) await candidate.sql(`DROP TABLE ${quote(table)};`)
       await this.io.dolt(['checkout', selectedHash, '--', ...allTables], candidate.directory, token)
       if (
-        canonical(await this.validated(candidate, binding.budgetId)) !== canonical(selectedBudget)
+        canonicalBudget(await this.validated(candidate, binding.budgetId)) !==
+        canonicalBudget(selectedBudget)
       )
         throw new Error('Candidate does not equal the selected complete budget')
       const after = {
@@ -661,7 +650,7 @@ export class SyncManager {
       )
         .map((row) => row.parent_hash)
         .sort()
-      if (canonical(parents) !== canonical([localRevision, remoteRevision].sort()))
+      if (JSON.stringify(parents) !== JSON.stringify([localRevision, remoteRevision].sort()))
         throw new Error('Conflict integration failed to preserve both histories')
       await this.validated(candidate, binding.budgetId)
       await this.backup(this.io.signal)
