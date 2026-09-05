@@ -23,6 +23,7 @@ export type StatementCandidateRow = StatementRow & {
   matches: Match[]
   skipApprovalId: string
   duplicateReason?: string
+  repeatsBankId?: boolean
 }
 export type StatementCandidate = {
   preview: ImportPreview
@@ -98,9 +99,16 @@ export function previewStatement(
     // An ID is authoritative for identity, but differing money requires investigation.
     if (duplicate && duplicate.amount !== row.amount)
       errors.push(`Statement row ${index + 1} reuses an existing bank ID with a different amount`)
-    if (repeated && JSON.stringify(repeated) !== JSON.stringify(row))
+    const conflicting = repeated && JSON.stringify(repeated) !== JSON.stringify(row)
+    if (conflicting)
       errors.push(`Statement row ${index + 1} repeats a bank ID with conflicting fields`)
-    const disposition = imported || duplicate || repeated ? 'duplicate' : 'new'
+    // An identical repeat of an in-statement ID is usually a genuine second purchase, so ask.
+    const repeatsBankId = Boolean(repeated) && !conflicting && !imported && !duplicate
+    const disposition = repeatsBankId
+      ? 'uncertain'
+      : imported || duplicate || repeated
+        ? 'duplicate'
+        : 'new'
     const day = ordinal(row.date)
     const candidates =
       disposition === 'new'
@@ -138,20 +146,30 @@ export function previewStatement(
       disposition: candidates.length ? 'uncertain' : disposition,
       matches: matches.slice(0, 20),
       skipApprovalId: `statement-skip:${identity(id)}`,
-      ...(disposition === 'duplicate'
+      ...(repeatsBankId
         ? {
-            duplicateReason: imported
-              ? 'This file was already imported into this account'
-              : duplicate
-                ? 'Bank ID already exists in this account'
-                : 'Bank ID repeated within this statement',
+            repeatsBankId,
+            duplicateReason: 'This row repeats an earlier bank ID with identical details',
           }
-        : {}),
+        : disposition === 'duplicate'
+          ? {
+              duplicateReason: imported
+                ? 'This file was already imported into this account'
+                : duplicate
+                  ? 'Bank ID already exists in this account'
+                  : 'Bank ID repeated within this statement',
+            }
+          : {}),
     }
   })
   if (rows.some((row) => !row.bankId))
     warnings.push(
       'Some rows have no bank ID. Exact-file repeats are skipped; overlapping files require review and may contain legitimate repeated purchases.',
+    )
+  const repeats = rows.filter((row) => row.repeatsBankId).length
+  if (repeats)
+    warnings.push(
+      `${repeats} ${repeats === 1 ? 'row repeats' : 'rows repeat'} an earlier bank ID with identical details. Bank IDs are not always unique; choose import separately for a genuine repeated purchase, or skip.`,
     )
   if (rows.some((row) => row.disposition === 'uncertain'))
     warnings.push(
@@ -299,7 +317,8 @@ export function applyStatement(
       memo: row.memo,
       amount: row.amount,
       cleared: 'cleared',
-      bankId: row.bankId,
+      // The repeat proved this ID is not unique, so only the first row keeps it.
+      bankId: row.repeatsBankId ? null : row.bankId,
       legacyId: null,
       transferId: null,
       splits: [
