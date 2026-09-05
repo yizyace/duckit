@@ -2,12 +2,12 @@ import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/pro
 import path from 'node:path'
 import {
   readManifest,
-  run,
-  validateArchivePaths,
   verifyDigest,
-  verifyTreeLinks,
   verifyNativeTree,
   runtimeBinaries,
+  extractRuntimeArchive,
+  overlayGcm,
+  overlayGitLfs,
 } from './runtime.ts'
 import type { Architecture, Asset } from './runtime.ts'
 
@@ -52,20 +52,18 @@ for (const arch of architectures) {
       const asset = manifest.platforms[arch][component]
       console.log(`Verifying ${component} for macOS ${arch}`)
       const archive = await download(asset)
-      const { stdout } = await run('/usr/bin/tar', ['-tzf', archive], {
-        maxBuffer: 16 * 1024 * 1024,
-      })
-      validateArchivePaths(stdout)
-      const target = path.join(candidate, component)
-      await mkdir(target)
-      await run('/usr/bin/tar', [
-        '-xzf',
-        archive,
-        '-C',
-        target,
-        `--strip-components=${asset.stripComponents ?? 0}`,
-      ])
-      await verifyTreeLinks(target)
+      await extractRuntimeArchive(archive, path.join(candidate, component), asset.stripComponents)
+    }
+    const gitCore = path.join(candidate, 'git/libexec/git-core')
+    for (const component of ['gcm', 'gitLfs'] as const) {
+      console.log(`Verifying ${component} overlay for macOS ${arch}`)
+      const asset = manifest.platforms[arch][component]
+      const archive = await download(asset)
+      const source = path.join(candidate, `.${component}`)
+      await extractRuntimeArchive(archive, source, asset.stripComponents)
+      if (component === 'gcm') await overlayGcm(source, gitCore)
+      else await overlayGitLfs(source, gitCore)
+      await rm(source, { recursive: true })
     }
     const licenses = path.join(candidate, 'licenses')
     await mkdir(licenses)

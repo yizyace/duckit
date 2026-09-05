@@ -1,13 +1,13 @@
 # Portable runtime and transport gate
 
-Duckit bundles a pinned Dolt binary and GitHub Desktop's portable Git distribution for each macOS architecture. The latter includes Git Credential Manager (GCM) and Git LFS. Runtime preparation is a developer/build operation; installed applications must use the bundled paths through Electron main.
+Duckit bundles pinned Dolt, GitHub Desktop's portable Git, Git Credential Manager (GCM), and Git LFS distributions for each macOS architecture. GCM and Git LFS are upgraded from their official archives within the portable Git tree. Runtime preparation is a developer/build operation; installed applications must use the bundled paths through Electron main.
 
 | Component              | Pinned release         | License material                                                                                |
 | ---------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| Dolt                   | 2.1.0                  | Upstream archive's complete `LICENSES`                                                          |
+| Dolt                   | 2.3.2                  | Upstream archive's complete `LICENSES`                                                          |
 | Git / dugite-native    | Git 2.53.0 / v2.53.0-4 | GPL copying terms, dugite license, corresponding Git source and build toolchain source archives |
-| Git Credential Manager | 2.9.0                  | MIT license and upstream `NOTICE`                                                               |
-| Git LFS                | 3.7.1                  | MIT license                                                                                     |
+| Git Credential Manager | 2.9.1                  | MIT license and upstream `NOTICE`                                                               |
+| Git LFS                | 3.8.0                  | MIT license                                                                                     |
 
 The committed `resources/runtime-manifest.json` pins URLs and SHA-256 digests. Binary digests came from the publisher's GitHub release assets; Git/dugite source and notice digests were independently downloaded and pinned. The Git source tag resolves to the same `67ad42147a7acc2af6074753ebd03d904476118f` submodule commit used by this dugite release. Keep source archives and notices in distributed application resources.
 
@@ -28,6 +28,20 @@ requesting `--arch=x64` on Apple Silicon: the standalone proof does not have the
 packaged smoke test's prelaunch host guard.
 
 `node scripts/runtime-fetch.ts arm64` prepares just one architecture. With no arguments, both architectures are downloaded. Preparation verifies checksums before extraction, rejects unsafe archive paths and escaping symlinks, builds a candidate directory, and only then replaces the previous bundle. A failed download or extraction keeps the existing bundle. A corrupt cached download fails visibly; remove that digest's file under `resources/runtime/.downloads` before retrying.
+
+The portable Git release remains v2.53.0-4; its Git tools, configuration, templates,
+symlinks and matching source archives are retained. The build overlays the complete
+GCM 2.9.1 runtime, including .NET libraries, from an independently pinned archive.
+Its file inventory matches the GCM 2.9.0 payload in this dugite release. An unexpected
+path, missing dependency, or changed inventory fails preparation before promotion;
+review the replacement scope when a later GCM version changes that layout. Only the
+`git-lfs` executable is copied from the official LFS ZIP. Upstream installer and
+uninstaller scripts are never run. License and notice URLs follow the upgraded
+component versions.
+
+Git LFS 3.8.0 requires macOS 13 or later, matching the application's existing
+Electron 44 deployment minimum. Git itself remains the latest available stable
+portable dugite build; Duckit does not maintain a custom Git build.
 
 Archives, expanded binaries, credentials and synthetic proof databases are excluded from Git. Packaging reads `resources/runtime/<arch>` and installs it as `process.resourcesPath/runtime`:
 
@@ -94,10 +108,30 @@ authenticated HTTPS push and fresh native Dolt recovery. Production recovery and
 schema compatibility have separate integration tests described in
 [synchronization](sync.md) and [capabilities](capabilities.md).
 
+The Dolt 2.3.2 / GCM 2.9.1 / Git LFS 3.8.0 upgrade was checked separately on
+Apple Silicon. Both architecture bundles passed archive checksums and recursive
+32-file native-code audits. Comparing the complete portable Git trees confirmed
+that only reviewed GCM/LFS files changed; neighboring Git files, executable modes,
+and symlinks were preserved. Thirteen focused runtime tests passed, including ZIP
+traversal rejection and guarded helper replacement. New GCM credential storage was
+exercised through bundled Git with an isolated synthetic store, without accessing
+the user's Keychain or a remote.
+
+A synthetic budget and native backup created with Dolt 2.1.0 opened under 2.3.2.
+The production storage APIs saved exact large integer amounts, created a verified
+backup before the checkpoint, reopened the budget, and restored both old/new
+backups. All normalized fields matched while preserving transaction and schedule
+split order; comparisons allowed only the deliberate revision increase on restore.
+Twenty-nine focused persistence, recovery, service, and synchronization tests passed
+with their existing deadlines. Native local Git push/fresh Dolt clone and both
+complete-snapshot choices passed, including two-parent commits and fresh clone
+parity. These local checks do not substitute for the combined dependency build's
+native Intel CI and packaged smoke reports.
+
 Current package validation requires native execution on the matching CI runner;
 consult the release's smoke report for its hardware coverage. Fresh-Mac Gatekeeper
 behavior and a fresh browser credential grant remain unverified. No signing identity
 was available; the local builds are unsigned
 and unnotarized. Source/binary acquisition does not sign or notarize a release.
 
-Upstream references: [Dolt 2.1.0 assets](https://github.com/dolthub/dolt/releases/tag/v2.1.0), [portable Git release and checksums](https://github.com/desktop/dugite-native/releases/tag/v2.53.0-4), [dugite macOS build](https://github.com/desktop/dugite-native/blob/4098283a7ecb8a227b9d43580336c78a06f90e5d/script/build-macos.sh), [GCM usage](https://github.com/git-ecosystem/git-credential-manager/blob/v2.9.0/docs/usage.md). GCM supports HTTP(S) credential flows; SSH uses macOS SSH and existing keys.
+Upstream references: [Dolt 2.3.2 assets](https://github.com/dolthub/dolt/releases/tag/v2.3.2), [portable Git release and checksums](https://github.com/desktop/dugite-native/releases/tag/v2.53.0-4), [dugite macOS build](https://github.com/desktop/dugite-native/blob/4098283a7ecb8a227b9d43580336c78a06f90e5d/script/build-macos.sh), [GCM 2.9.1 release](https://github.com/git-ecosystem/git-credential-manager/releases/tag/v2.9.1), [Git LFS 3.8.0 release](https://github.com/git-lfs/git-lfs/releases/tag/v3.8.0), [GCM usage](https://github.com/git-ecosystem/git-credential-manager/blob/v2.9.1/docs/usage.md). GCM supports HTTP(S) credential flows; SSH uses macOS SSH and existing keys.
