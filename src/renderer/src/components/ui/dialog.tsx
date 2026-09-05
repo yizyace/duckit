@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react'
+import { useRef, type ComponentProps } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -11,12 +11,35 @@ export const DialogClose = DialogPrimitive.Close
 export function DialogContent({
   className,
   children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: ComponentProps<typeof DialogPrimitive.Content>) {
+  const opener = useRef<HTMLElement | null>(
+    document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement
+      : null,
+  )
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="dialog-overlay" />
-      <DialogPrimitive.Content className={cn('dialog-content', className)} {...props}>
+      <DialogPrimitive.Content
+        className={cn('dialog-content', className)}
+        {...props}
+        onOpenAutoFocus={onOpenAutoFocus}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event)
+          if (event.defaultPrevented) return
+          const target =
+            opener.current?.isConnected && !opener.current.matches(':disabled')
+              ? opener.current
+              : null
+          if (target) {
+            event.preventDefault()
+            target.focus()
+          }
+        }}
+      >
         {children}
         <DialogPrimitive.Close asChild>
           <Button
