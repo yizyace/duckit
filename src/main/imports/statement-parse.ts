@@ -53,7 +53,8 @@ const aliases = {
   amount: ['amount', 'transactionamount'],
   debit: ['debit', 'debits', 'withdrawal', 'withdrawals', 'outflow'],
   credit: ['credit', 'credits', 'deposit', 'deposits', 'inflow'],
-  bankId: ['fitid', 'transactionid', 'bankid', 'reference', 'referencenumber'],
+  // Only columns that banks guarantee unique per transaction; Reference is often a batch code.
+  bankId: ['fitid', 'transactionid', 'bankid'],
 } as const
 type Columns = Partial<Record<keyof typeof aliases, number>>
 function columns(row: string[]): Columns | null {
@@ -177,7 +178,7 @@ function descendants(node: unknown, name: string, out: unknown[] = []): unknown[
 function closeSgmlLeaves(text: string): string {
   const emptyLeaves = new Set(['NAME', 'MEMO', 'FITID', 'CHECKNUM', 'REFNUM', 'ACCTKEY'])
   return text.replace(
-    /<([A-Z][A-Z0-9]*)>([^<]*)(?=<\/?([A-Z][A-Z0-9]*)>)/g,
+    /<([A-Z][A-Z0-9]*(?:\.[A-Z][A-Z0-9]*)*)>([^<]*)(?=<\/?([A-Z][A-Z0-9]*(?:\.[A-Z][A-Z0-9]*)*)>)/g,
     (whole, tag: string, value: string, next: string) =>
       (value.trim() || emptyLeaves.has(tag)) && tag !== next ? `${whole}</${tag}>` : whole,
   )
@@ -198,7 +199,7 @@ function ofx(text: string): ParsedStatement {
   if ((xml.match(/</g)?.length ?? 0) > 100000) throw new Error('OFX contains too many elements')
   let depth = 0
   for (const match of xml.matchAll(/<([^>]*)>/g)) {
-    if (!/^\/?[A-Z][A-Z0-9]*$/.test(match[1]!))
+    if (!/^\/?[A-Z][A-Z0-9]*(?:\.[A-Z][A-Z0-9]*)*$/.test(match[1]!))
       throw new Error('OFX attributes and unsupported markup are not accepted')
     depth += match[1]!.startsWith('/') ? -1 : 1
     if (depth < 0 || depth > 32) throw new Error('OFX nesting limit exceeded')

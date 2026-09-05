@@ -235,6 +235,47 @@ describe('Classic budget calculation with hand-computed cents', () => {
     expect(validateBudget(data)).toEqual([])
   })
 
+  it('confines a debt category by default until a later month sets AffectsBuffer', () => {
+    const data = budget()
+    data.transactions = [
+      income('pay', '300000', '2024-01-01', '2024-01'),
+      income('pay2', '300000', '2024-02-01', '2024-02'),
+      transaction('opening-debt', '-500000', 'debt', '2024-01-01', { accountId: 'credit' }),
+    ]
+    data.allocations = [
+      allocation('debt', '2024-01', '50000'),
+      allocation('debt', '2024-03', '0', 'AffectsBuffer'),
+    ]
+    const [jan, feb, mar, apr] = calculateBudget(data, '2024-01', '2024-04')
+    expect(feb).toMatchObject({ availableBeforeBudget: 550000n, overspending: 0n })
+    expect(feb!.categories[2]).toMatchObject({ carryIn: -450000n, balance: -450000n })
+    expect(jan).toMatchObject({ available: 250000n, overspending: 0n })
+    expect(jan!.categories[2]).toMatchObject({ balance: -450000n, overspending: 'Confined' })
+    expect(feb!.categories[0]).toMatchObject({ balance: 0n, overspending: 'AffectsBuffer' })
+    expect(mar).toMatchObject({ available: 550000n, overspending: 0n })
+    expect(mar!.categories[2]).toMatchObject({ balance: -450000n, overspending: 'AffectsBuffer' })
+    expect(apr).toMatchObject({ availableBeforeBudget: 100000n, overspending: 450000n })
+    expect(apr!.categories[2]).toMatchObject({
+      carryIn: 0n,
+      balance: 0n,
+      overspending: 'AffectsBuffer',
+    })
+  })
+
+  it('lets an explicit AffectsBuffer on a debt category charge the buffer as before', () => {
+    const data = budget()
+    data.transactions = [
+      income('pay', '300000', '2024-01-01', '2024-01'),
+      income('pay2', '300000', '2024-02-01', '2024-02'),
+      transaction('opening-debt', '-500000', 'debt', '2024-01-01', { accountId: 'credit' }),
+    ]
+    data.allocations = [allocation('debt', '2024-01', '50000', 'AffectsBuffer')]
+    const [jan, feb] = calculateBudget(data, '2024-01', '2024-02')
+    expect(jan!.categories[2]).toMatchObject({ balance: -450000n, overspending: 'AffectsBuffer' })
+    expect(feb).toMatchObject({ availableBeforeBudget: 100000n, overspending: 450000n })
+    expect(feb!.categories[2]).toMatchObject({ carryIn: 0n, balance: 0n })
+  })
+
   it('keeps uncategorized entries visible without inventing categories or income', () => {
     const data = budget()
     data.transactions = [transaction('unknown', '-123', null)]

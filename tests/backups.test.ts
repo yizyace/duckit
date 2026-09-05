@@ -1,5 +1,5 @@
 import { it, expect } from 'vitest'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { access, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { demoBudget } from '../src/shared/demo'
@@ -44,6 +44,31 @@ it('verifies native backups and restores separately while destination failures p
     await expect(bad.snapshot()).rejects.toThrow()
     expect((await workspace.database!.read()).name).toBe(original.name)
     expect((await backups.list()).length).toBeGreaterThanOrEqual(2)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+}, 120000)
+it('ignores a backup whose payload is missing and snapshots again', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'duckit-backup-'))
+  try {
+    const workspace = new Workspace(root, {
+      directory: resolve('resources/runtime', process.arch),
+      stateRoot: join(root, 'config'),
+    })
+    await workspace.initialize()
+    await workspace.activate(await workspace.candidate(demoBudget()))
+    const backups = new Backups(workspace),
+      damaged = (await backups.snapshot())!
+    expect(damaged).not.toBeNull()
+    await rm(join(backups.destination, damaged.id, 'snapshot'), { recursive: true, force: true })
+    expect.soft((await backups.list()).map((b) => b.id)).not.toContain(damaged.id)
+    const replacement = await backups.snapshot()
+    expect.soft(replacement?.id).not.toBe(damaged.id)
+    expect((await backups.list()).map((b) => b.id)).toContain(replacement!.id)
+    // Damaged backups are ignored, never deleted.
+    await expect(
+      access(join(backups.destination, damaged.id, 'metadata.json')),
+    ).resolves.toBeUndefined()
   } finally {
     await rm(root, { recursive: true, force: true })
   }

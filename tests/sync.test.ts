@@ -353,6 +353,21 @@ describe('native private-budget synchronization', () => {
     expect(a.sync.message).not.toContain('synthetic-token')
   }, 120000)
 
+  it('reports failures raised before the guarded region of synchronization', async () => {
+    const f = await fixture(),
+      a = await f.workspace('a', true)
+    await a.sync.connect('synthetic/budget')
+    await a.sync.sync()
+    expect(a.sync.status).toBe('synced')
+    const budgets = join(a.ws.root, 'budgets')
+    expect(await readdir(budgets)).toHaveLength(1)
+    await writeFile(join(a.ws.root, 'sync-review.json'), '{')
+    await expect(a.sync.sync()).rejects.toThrow()
+    expect(a.sync.status).toBe('offline')
+    expect(a.sync.message).not.toBe('')
+    expect(await readdir(budgets)).toHaveLength(1)
+  }, 120000)
+
   it('refuses unrelated budgets and unsupported remote schemas without activating them', async () => {
     const f = await fixture(),
       a = await f.workspace('a', true),

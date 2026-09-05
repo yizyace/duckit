@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rename, rm } from 'node:fs/promises'
+import { access, mkdir, readFile, readdir, rename, rm } from 'node:fs/promises'
 import { join, dirname, basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { randomUUID } from 'node:crypto'
@@ -51,9 +51,11 @@ export class Backups {
         const value = metadataSchema.parse(
           JSON.parse(await readFile(join(this.destination, entry.name, 'metadata.json'), 'utf8')),
         )
+        await access(join(this.destination, entry.name, 'snapshot'))
         if (value.id === entry.name) metadata.push(value)
       } catch {
-        /* Incomplete snapshots are never offered for restore. */
+        /* Snapshots without readable metadata or a payload are never offered for restore,
+           so snapshot() cannot reuse a damaged one to skip work either. */
       }
     }
     return metadata.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -71,6 +73,7 @@ export class Backups {
     const budget = await database.read(),
       checksum = digest(stableBudget(budget)),
       backups = await this.list()
+    // `latest` comes from list(), which is what guarantees its payload still exists.
     const latest = backups.find((b) => b.budgetId === budget.id)
     if (!force && latest?.checksum === checksum) return latest
     const id = randomUUID(),

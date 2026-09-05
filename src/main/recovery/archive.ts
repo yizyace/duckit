@@ -3,6 +3,9 @@ import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate'
 import { budgetSchema, type Budget } from '../../shared/contracts'
 import { assertValidBudget } from '../../engine'
 const MAX_SIZE = 256 * 1024 * 1024
+// Fixed zip entry mtime (2000-01-01T00:00:00Z) so identical budgets export to identical
+// bytes; fflate stamps Date.now() otherwise, and 0 is rejected as out of the DOS date range.
+const ARCHIVE_MTIME = 946684800000
 export function digest(data: Uint8Array | string): string {
   return createHash('sha256').update(data).digest('hex')
 }
@@ -17,9 +20,11 @@ export function exportArchive(budget: Budget): Uint8Array {
     currency: normalized.currency,
     checksums: { 'budget.json': digest(data) },
   }
+  // Byte-determinism also depends on row order from denormalize() in
+  // src/main/storage/schema.ts, which sorts only `splits` (by `position`).
   return zipSync(
     { 'manifest.json': strToU8(JSON.stringify(manifest)), 'budget.json': data },
-    { level: 6 },
+    { level: 6, mtime: ARCHIVE_MTIME },
   )
 }
 export function importArchive(bytes: Uint8Array): Budget {
