@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { join, delimiter } from 'node:path'
 import { mkdir, access } from 'node:fs/promises'
 
-export type Runtime = { directory: string; stateRoot: string }
+export type Runtime = { directory: string; stateRoot: string; signal?: AbortSignal }
 export function environment(runtime: Runtime): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {}
   for (const key of ['HOME', 'USER', 'LOGNAME', 'TMPDIR', 'LANG', 'LC_ALL', 'SSH_AUTH_SOCK']) {
@@ -33,37 +33,52 @@ export async function runDolt(
   input?: string,
   timeout = 120_000,
 ): Promise<string> {
+  runtime.signal?.throwIfAborted()
   await access(join(runtime.directory, 'dolt/bin/dolt'))
+  runtime.signal?.throwIfAborted()
   return new Promise((resolve, reject) => {
     const child = spawn(join(runtime.directory, 'dolt/bin/dolt'), args, {
       cwd,
       env: environment(runtime),
+      detached: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
     let out = '',
       size = 0,
       failed = false
+    const stop = () => {
+      if (!child.pid) return
+      try {
+        process.kill(-child.pid, 'SIGKILL')
+      } catch {
+        /* The process group already exited. */
+      }
+    }
+    runtime.signal?.addEventListener('abort', stop, { once: true })
     const timer = setTimeout(() => {
       failed = true
-      child.kill('SIGKILL')
+      stop()
     }, timeout)
     child.stdout.setEncoding('utf8')
     child.stdout.on('data', (bytes: string) => {
       size += Buffer.byteLength(bytes)
       if (size > 256 * 1024 * 1024) {
         failed = true
-        child.kill('SIGKILL')
+        stop()
       } else out += bytes
     })
     // Dolt errors can contain SQL/financial values. Never forward raw stderr to renderer/logs.
     child.stderr.resume()
     child.on('error', () => {
       clearTimeout(timer)
+      runtime.signal?.removeEventListener('abort', stop)
       reject(new Error('Bundled database process could not start'))
     })
     child.on('close', (code) => {
       clearTimeout(timer)
-      if (failed || code !== 0)
+      runtime.signal?.removeEventListener('abort', stop)
+      if (runtime.signal?.aborted) reject(new Error('Database operation was cancelled'))
+      else if (failed || code !== 0)
         reject(
           new Error(
             failed
