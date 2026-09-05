@@ -103,9 +103,7 @@ function SaveStatus({ status }: { status: Status }) {
         />
         <span>{remoteLabels[status.remote]}</span>
       </p>
-      {(status.local === 'error' || status.remote === 'conflict') && status.message && (
-        <p className="status-detail">{status.message}</p>
-      )}
+      {status.message && <p className="status-detail">{status.message}</p>}
     </div>
   )
 }
