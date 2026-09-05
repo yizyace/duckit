@@ -35,6 +35,10 @@ test's temporary-directory screenshot is not uploaded. This does not claim autom
 trace/video capture for those contexts. `forbidOnly` rejects accidentally focused tests in CI.
 No retries hide a failing test. Job timeouts bound stuck processes, and a failed,
 cancelled or skipped prerequisite cannot produce a green `CI passed` result.
+Budget creation, backup restoration and archive activation have explicit 30-second
+completion waits: their candidate validation and verified backups can exceed the
+usual five-second assertion window. These waits still require the expected state
+and closed dialog; they do not retry the operation.
 
 Run local equivalents with `npm run format:check`, `npm run check`, and
 `npm run test:e2e`. Workflow validation uses actionlint 1.7.12; its download checksum
