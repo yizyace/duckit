@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: '09:00'
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: '09:00'
+    open-pull-requests-limit: 5
+    groups:
+      production-compatible:
+        dependency-type: production
+        update-types: [minor, patch]
+      development-compatible:
+        dependency-type: development
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
