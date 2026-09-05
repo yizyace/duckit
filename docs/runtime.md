@@ -66,7 +66,7 @@ node scripts/transport-proof.ts --github=OWNER/PRIVATE_REPOSITORY
 
 The repository must already be private and have an initialized Git branch. The proof rechecks its immutable identity and privacy before upload. It writes synthetic state to a unique `refs/dolt/duckit-proof-<uuid>` ref, clones using `dolt clone --ref`, checks state equality, deletes its exact temporary ref, and verifies deletion. It never writes `refs/dolt/data` in the GitHub mode. GitHub may retain unreachable synthetic objects after deleting a ref. A cleanup failure reports the exact test ref requiring removal and preserves the original error.
 
-## Recorded evidence and remaining release gates
+## Recorded evidence and verification limits
 
 On 2026-09-04, using macOS 26.5 on Apple Silicon:
 
@@ -76,6 +76,15 @@ On 2026-09-04, using macOS 26.5 on Apple Silicon:
 - Apple Silicon native private GitHub push and fresh Dolt clone passed on a temporary synthetic ref, followed by verified ref removal. Private repository evidence is retained in private task tracking.
 - Five focused unit tests cover checksum corruption, archive traversal, internal/external symlinks, dual architecture pins, and polluted subprocess environments.
 
-This is feasibility evidence. Clean-machine packaged launch, execution on an actual Intel Mac, fresh browser-based GCM connection, HTTPS authenticated transport, and production recovery/compatibility tests remain acceptance gates. No signing identity was available during bootstrap. Source/binary acquisition does not itself sign or notarize a release.
+Release verification also passed packaged onboarding, exact saves, backup, clean exit,
+reopen and restore on Apple Silicon and under Rosetta, with developer tools absent
+from the application's PATH. Bundled GCM reused an existing Keychain credential for
+authenticated HTTPS push and fresh native Dolt recovery. Production recovery and
+schema compatibility have separate integration tests described in
+[synchronization](sync.md) and [capabilities](capabilities.md).
+
+Execution on native Intel hardware, a fresh Mac, and a fresh browser credential grant
+remain unverified. No signing identity was available; the local builds are unsigned
+and unnotarized. Source/binary acquisition does not sign or notarize a release.
 
 Upstream references: [Dolt 2.1.0 assets](https://github.com/dolthub/dolt/releases/tag/v2.1.0), [portable Git release and checksums](https://github.com/desktop/dugite-native/releases/tag/v2.53.0-4), [dugite macOS build](https://github.com/desktop/dugite-native/blob/4098283a7ecb8a227b9d43580336c78a06f90e5d/script/build-macos.sh), [GCM usage](https://github.com/git-ecosystem/git-credential-manager/blob/v2.9.0/docs/usage.md). GCM supports HTTP(S) credential flows; SSH uses macOS SSH and existing keys.

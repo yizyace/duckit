@@ -44,6 +44,13 @@ npx vitest run tests/sync.test.ts tests/sync-io.test.ts
 
 Tests use initialized local bare Git repositories with native Dolt `refs/dolt/data` transport and injected GitHub API/credential seams. They cover first push and fresh recovery, fast-forward and idle stability, both full-snapshot merge choices, independent deletions, two merge parents, receipt preservation, retired undo history, stale choices, privacy/identity/credential failures, unrelated budgets, unsupported schemas, credential redaction, and process-group cancellation. They contain only synthetic data.
 
-Main-process test options can override the remote URL or use a unique `refs/dolt/duckit-proof-*` ref. Those options are not part of the renderer API. Real financial uploads to the production ref remain gated on migration validation and explicit final activation. Fresh browser authentication and real GitHub HTTPS transport require separate desktop acceptance testing; the synthetic API seam does not claim to verify them.
+Main-process test options can override the remote URL or use a unique `refs/dolt/duckit-proof-*` ref. Those options are not part of the renderer API. Real financial uploads require migration validation and authorized final activation.
+
+Separate desktop acceptance passed existing Keychain credential reuse through bundled
+GCM, authenticated GitHub HTTPS upload, and native Dolt recovery, without injected
+credentials or simulated API responses. The packaged application also passed private
+migration activation and connection. Evidence and financial data remain outside public
+source. A fresh browser credential grant remains unverified; synthetic credential tests
+cover the browser-flow invocation and expired-credential handling.
 
 Primary references: [GCM usage](https://github.com/git-ecosystem/git-credential-manager/blob/v2.9.0/docs/usage.md), [GitHub repository creation](https://docs.github.com/en/rest/repos/repos#create-a-repository-for-the-authenticated-user), [GitHub seed content API](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents), [Git HTTP configuration](https://git-scm.com/docs/git-config).

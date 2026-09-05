@@ -19,11 +19,21 @@ not a verified oracle.
 | Accessibility            | Automated light/dark/modal checks and keyboard/focus tests; auditory VoiceOver testing remains unverified                                                  |
 | Packaged runtime         | Unsigned Apple Silicon launch and Intel launch under Rosetta with bundled tools; native Intel hardware and fresh-Mac Gatekeeper behavior remain unverified |
 
-The integrated release gate includes the final rebuilt application, original-archive
-reconciliation, representative desktop workflows, backup restore and a fresh native
-Dolt clone of the private budget remote. Do not equate isolated module tests with
-completion of that gate. Browser credential connection and actual remote transport
-are recorded separately from synthetic network tests.
+The 0.1.0 integrated release gate passed with the rebuilt packaged application:
+authorized original-archive activation, representative budgeting and register edits
+with undo, historical reports, backup restoration, portable export parity, and a
+fresh native Dolt clone of the private budget remote. A separately implemented oracle
+reconstructed the original archive and matched every account, category-month and
+monthly calculation. The original archive remained unchanged. Private evidence is
+retained outside this repository; this establishes ledger correctness, without
+claiming historical display parity with the original application.
+
+The source passed 103 unit/integration tests and 12 real Electron tests locally and
+in GitHub CI. Both packaged architectures passed launch and recovery checks with
+developer tools absent from the application's PATH. Actual GitHub HTTPS transport
+and reuse of existing Keychain credentials through bundled GCM passed separately
+from synthetic network tests. A fresh browser credential grant, a fresh Mac,
+native Intel hardware and auditory VoiceOver testing remain unverified.
 
 Run `npm run check`, `npm run test:e2e`, and the packaged smoke commands in
 [installation](install.md). [Runtime notes](runtime.md), [statement imports](statements.md),
