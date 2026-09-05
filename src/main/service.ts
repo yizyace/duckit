@@ -13,7 +13,7 @@ import { demoBudget, emptyBudget } from '../shared/demo'
 import { applyChanges, assertValidBudget } from '../engine'
 import { Workspace } from './storage/workspace'
 import { Backups } from './recovery/backups'
-import { StaleRevisionError } from './storage/database'
+import { StaleRevisionError, type Database } from './storage/database'
 import { atomicWrite } from './storage/atomic-file'
 export class BudgetService {
   readonly workspace: Workspace
@@ -96,39 +96,68 @@ export class BudgetService {
       const command = commandSchema.parse(input),
         database = this.workspace.database
       if (!database) throw new Error('Create or import a budget first')
-      if (await database.receipt(command)) return this.state()
+      if (await database.receipt(command)) return this.committedState(database)
       const before = await database.read()
       if (before.revision !== command.expectedRevision)
         throw new StaleRevisionError(
           'This budget changed. Your entries are preserved. Reload and review them before saving.',
         )
       this.publish({ local: 'saving' })
+      let attemptedWrite = false
       try {
         const undo = command.changes.find((c) => c.type === 'undo' || c.type === 'redo')
         if (undo) {
           if (command.changes.length !== 1) throw new Error('Undo or redo must be its own command')
+          attemptedWrite = true
           await database.undo(before, command, undo.type === 'redo')
         } else {
           const after = applyChanges(before, command.changes, { commandId: command.id })
           after.revision = before.revision + 1
           assertValidBudget(after)
+          attemptedWrite = true
           await database.save(before, after, command)
         }
-        this.publish({ local: 'saved', message: 'Saved on this Mac' })
       } catch (error) {
-        this.publish({
-          local: 'error',
-          message: 'The edit was not saved. Your previous budget is intact.',
-        })
-        throw error
+        let committed = false
+        if (attemptedWrite) {
+          try {
+            // The native process can fail after COMMIT. The receipt and domain
+            // changes share one transaction, so its fingerprint confirms this save.
+            committed = await database.receipt(command)
+          } catch {
+            const message =
+              'Duckit could not confirm whether this edit was saved. Your entries are preserved; review the current budget before retrying.'
+            this.publish({ local: 'error', message })
+            throw new Error(message, { cause: error })
+          }
+        }
+        if (!committed) {
+          this.publish({
+            local: 'error',
+            message: 'This edit was not saved. Your entries are preserved.',
+          })
+          throw error
+        }
       }
-      try {
-        await database.checkpoint()
-      } catch {
-        this.publish({ message: 'Saved locally. The history checkpoint will be retried.' })
-      }
-      return this.state()
+      return this.committedState(database)
     })
+  }
+  private async committedState(database: Database): Promise<AppState> {
+    // Idempotent retries also clear an earlier error and retry an unfinished checkpoint.
+    this.publish({ local: 'saved', message: 'Saved on this Mac' })
+    try {
+      await database.checkpoint()
+    } catch {
+      this.publish({ message: 'Saved locally. The history checkpoint will be retried.' })
+    }
+    try {
+      return await this.state()
+    } catch (error) {
+      const message =
+        'Your edit was saved, but Duckit could not refresh the budget. Reopen it before making another edit.'
+      this.publish({ message })
+      throw new Error(message, { cause: error })
+    }
   }
   async backup(force = false, signal?: AbortSignal): Promise<void> {
     const metadata = await this.backups.snapshot(force, new Date(), new Set(), signal)

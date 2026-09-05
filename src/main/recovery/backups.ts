@@ -140,27 +140,44 @@ export class Backups {
       join(this.workspace.root, 'budgets', randomUUID()),
       this.workspace.runtime,
     )
-    await runDolt(candidate.runtime, dirname(candidate.directory), [
-      'backup',
-      'restore',
-      pathToFileURL(join(this.destination, id, 'snapshot')).href,
-      basename(candidate.directory),
-    ])
-    const restored = await candidate.read()
-    assertValidBudget(restored)
-    const encoded =
-      metadata.checksumVersion === 2 ? canonicalBudget(restored) : legacyStableBudget(restored)
-    if (digest(encoded) !== metadata.checksum) throw new Error('Backup contents failed validation')
-    // Preserve history in the restored database, but retire local command history from the older snapshot.
-    // Revisions increase so an already-open form cannot accidentally target the restored state.
-    const after = { ...restored, revision: Math.max(before.revision, restored.revision) + 1 }
-    await candidate.sql(
-      'START TRANSACTION;\n' +
-        candidate.replaceSQL(restored, after) +
-        '\nUPDATE undo_history SET retired=TRUE;\nCOMMIT;',
-    )
-    await candidate.checkpoint('Restore verified backup')
-    await this.workspace.activate(candidate)
+    try {
+      await runDolt(candidate.runtime, dirname(candidate.directory), [
+        'backup',
+        'restore',
+        pathToFileURL(join(this.destination, id, 'snapshot')).href,
+        basename(candidate.directory),
+      ])
+      const restored = await candidate.read()
+      assertValidBudget(restored)
+      const encoded =
+        metadata.checksumVersion === 2 ? canonicalBudget(restored) : legacyStableBudget(restored)
+      if (digest(encoded) !== metadata.checksum)
+        throw new Error('Backup contents failed validation')
+      // Preserve history in the restored database, but retire local command history from the older snapshot.
+      // Revisions increase so an already-open form cannot accidentally target the restored state.
+      const after = { ...restored, revision: Math.max(before.revision, restored.revision) + 1 }
+      await candidate.sql(
+        'START TRANSACTION;\n' +
+          candidate.replaceSQL(restored, after) +
+          '\nUPDATE undo_history SET retired=TRUE;\nCOMMIT;',
+      )
+      await candidate.checkpoint('Restore verified backup')
+      await this.workspace.activate(candidate)
+    } catch (error) {
+      // Only this invocation's candidate is disposable. Once activation succeeds,
+      // its database must survive even if a later caller reports an error.
+      if (this.workspace.database?.directory !== candidate.directory) {
+        try {
+          await rm(candidate.directory, { recursive: true, force: true, maxRetries: 3 })
+        } catch (cleanupError) {
+          throw new AggregateError(
+            [error, cleanupError],
+            `${error instanceof Error ? error.message : 'Backup restoration failed'}. The rejected candidate could not be removed; check available storage.`,
+          )
+        }
+      }
+      throw error
+    }
   }
 }
 // Compatibility only: never use this order-insensitive encoding for a new backup.

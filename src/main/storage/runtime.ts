@@ -83,7 +83,7 @@ export async function runDolt(
           new Error(
             failed
               ? 'Database operation timed out or exceeded its size limit'
-              : 'Database operation failed; existing data was preserved',
+              : 'Database operation failed. Check the current budget before retrying.',
           ),
         )
       else resolve(out)
