@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Redo2, Undo2 } from 'lucide-react'
 import type { AppState, Change, ImportPreview } from '../../shared/contracts'
 import { unwrap } from './lib/api'
+import { acceptState, stateKey } from './lib/query'
 import { Shell } from './Shell'
 import { Button } from './components/ui/button'
 import { BudgetView } from './views/BudgetView'
@@ -14,7 +15,7 @@ import './views/settings.css'
 export function App() {
   const client = useQueryClient()
   const state = useQuery({
-    queryKey: ['state'],
+    queryKey: stateKey,
     queryFn: async () => unwrap(await window.duckit.getState()),
     retry: false,
   })
@@ -24,19 +25,14 @@ export function App() {
   const [preview, setPreview] = useState<{ value: ImportPreview; revision: number | null } | null>(
     null,
   )
-  const accept = useCallback(
-    (next: AppState) => {
-      client.setQueryData(['state'], next)
-    },
-    [client],
-  )
+  const accept = useCallback((next: AppState) => acceptState(client, next), [client])
   useEffect(
     () =>
       window.duckit.onStatus((status) => {
-        client.setQueryData<AppState>(['state'], (previous) =>
+        client.setQueryData<AppState>(stateKey, (previous) =>
           previous ? { ...previous, status } : previous,
         )
-        if (status.remote === 'synced') void client.invalidateQueries({ queryKey: ['state'] })
+        if (status.remote === 'synced') void client.invalidateQueries({ queryKey: stateKey })
       }),
     [client],
   )
@@ -48,8 +44,8 @@ export function App() {
         changes,
       })
       if (!result.ok && result.code === 'stale')
-        await client.invalidateQueries({ queryKey: ['state'] })
-      accept(unwrap(result))
+        await client.invalidateQueries({ queryKey: stateKey })
+      await accept(unwrap(result))
     },
     [accept, client],
   )
@@ -190,7 +186,7 @@ export function App() {
           revision={preview.revision}
           onClose={() => setPreview(null)}
           onState={(next) => {
-            accept(next)
+            void accept(next)
             setView('budget')
           }}
         />

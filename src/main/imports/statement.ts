@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { basename } from 'node:path'
-import { assertValidBudget } from '../../engine'
+import { assertValidBudget, formatMoney } from '../../engine'
 import {
   budgetSchema,
   type Budget,
@@ -23,6 +23,7 @@ export type StatementCandidateRow = StatementRow & {
   matches: Match[]
   skipApprovalId: string
   duplicateReason?: string
+  repeatsBankId?: boolean
 }
 export type StatementCandidate = {
   preview: ImportPreview
@@ -44,6 +45,13 @@ function freeze<T>(value: T): T {
     for (const child of Object.values(value)) freeze(child)
   }
   return value
+}
+/** Name an offending row so a preview warning is actionable without opening the file. */
+const describeRow = (row: StatementRow, index: number) =>
+  `row ${index + 1} (${row.date} ${row.payee || 'no payee'} ${formatMoney(row.amount)})`
+function rowList(entries: string[]): string {
+  const shown = entries.slice(0, 5).join('; ')
+  return entries.length > 5 ? `${shown}; and ${entries.length - 5} more` : shown
 }
 function ordinal(date: string): number {
   // These UTC epochs are only comparison ordinals; imported calendar strings stay unchanged.
@@ -83,6 +91,8 @@ export function previewStatement(
       bankIds.set(row.bankId, row)
     }
   const seenBankIds = new Map<string, StatementRow>()
+  const repeatedInStatement: string[] = []
+  const repeatedInAccount: string[] = []
   const payees = new Map(budget.payees.map((row) => [row.id, row.name]))
   const warnings = [...parsed.warnings]
   const errors: string[] = []
@@ -98,9 +108,20 @@ export function previewStatement(
     // An ID is authoritative for identity, but differing money requires investigation.
     if (duplicate && duplicate.amount !== row.amount)
       errors.push(`Statement row ${index + 1} reuses an existing bank ID with a different amount`)
-    if (repeated && JSON.stringify(repeated) !== JSON.stringify(row))
+    const conflicting = repeated && JSON.stringify(repeated) !== JSON.stringify(row)
+    if (conflicting)
       errors.push(`Statement row ${index + 1} repeats a bank ID with conflicting fields`)
-    const disposition = imported || duplicate || repeated ? 'duplicate' : 'new'
+    // An identical repeat of an in-statement ID is usually a genuine second purchase, so ask.
+    const repeatsBankId = Boolean(repeated) && !conflicting && !imported && !duplicate
+    if (repeatsBankId) repeatedInStatement.push(describeRow(row, index))
+    // The account already holds this ID; dedup keeps the row out, so say so rather than drop it.
+    else if (repeated && duplicate && !conflicting && !imported)
+      repeatedInAccount.push(describeRow(row, index))
+    const disposition = repeatsBankId
+      ? 'uncertain'
+      : imported || duplicate || repeated
+        ? 'duplicate'
+        : 'new'
     const day = ordinal(row.date)
     const candidates =
       disposition === 'new'
@@ -138,20 +159,35 @@ export function previewStatement(
       disposition: candidates.length ? 'uncertain' : disposition,
       matches: matches.slice(0, 20),
       skipApprovalId: `statement-skip:${identity(id)}`,
-      ...(disposition === 'duplicate'
+      ...(repeatsBankId
         ? {
-            duplicateReason: imported
-              ? 'This file was already imported into this account'
-              : duplicate
-                ? 'Bank ID already exists in this account'
-                : 'Bank ID repeated within this statement',
+            repeatsBankId,
+            duplicateReason: 'This row repeats an earlier bank ID with identical details',
           }
-        : {}),
+        : disposition === 'duplicate'
+          ? {
+              duplicateReason: imported
+                ? 'This file was already imported into this account'
+                : duplicate
+                  ? 'Bank ID already exists in this account'
+                  : 'Bank ID repeated within this statement',
+            }
+          : {}),
     }
   })
   if (rows.some((row) => !row.bankId))
     warnings.push(
       'Some rows have no bank ID. Exact-file repeats are skipped; overlapping files require review and may contain legitimate repeated purchases.',
+    )
+  const repeats = repeatedInStatement.length
+  if (repeats)
+    warnings.push(
+      `${repeats} ${repeats === 1 ? 'row repeats' : 'rows repeat'} an earlier bank ID with identical details: ${rowList(repeatedInStatement)}. Bank IDs are not always unique; choose import separately for a genuine repeated purchase, or skip.`,
+    )
+  const held = repeatedInAccount.length
+  if (held)
+    warnings.push(
+      `${held} ${held === 1 ? 'row repeats a bank ID that already exists' : 'rows repeat bank IDs that already exist'} in this account: ${rowList(repeatedInAccount)}. If these are separate purchases, add the second by hand.`,
     )
   if (rows.some((row) => row.disposition === 'uncertain'))
     warnings.push(
@@ -176,7 +212,8 @@ export function previewStatement(
       duplicates: rows.filter((row) => row.disposition === 'duplicate').length,
       uncertain: rows.filter((row) => row.disposition === 'uncertain').length,
     },
-    rows: rows.map((row) => ({ ...row })),
+    // repeatsBankId stays in main; the renderer contract does not declare it.
+    rows: rows.map(({ repeatsBankId: _internal, ...row }) => row),
   }
   return freeze({
     preview,
@@ -299,7 +336,8 @@ export function applyStatement(
       memo: row.memo,
       amount: row.amount,
       cleared: 'cleared',
-      bankId: row.bankId,
+      // The repeat proved this ID is not unique, so only the first row keeps it.
+      bankId: row.repeatsBankId ? null : row.bankId,
       legacyId: null,
       transferId: null,
       splits: [

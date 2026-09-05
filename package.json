@@ -10,9 +10,13 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "electron:install": "install-electron",
+    "predev": "npm run electron:install",
     "dev": "electron-vite dev --watch",
+    "predemo": "npm run electron:install",
     "demo": "DUCKIT_DEMO=1 electron-vite dev --watch",
     "build": "electron-vite build",
+    "prestart": "npm run electron:install",
     "start": "electron-vite preview",
     "typecheck": "tsc",
     "test": "vitest run",
@@ -54,15 +58,15 @@
     "@types/node": "24.13.3",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
-    "@vitejs/plugin-react": "5.2.0",
+    "@vitejs/plugin-react": "6.1.1",
     "electron": "44.2.0",
     "electron-builder": "26.15.3",
-    "electron-vite": "5.0.0",
+    "electron-vite": "6.0.0-beta.1",
     "prettier": "3.9.6",
     "tailwindcss": "4.3.3",
     "tsx": "4.23.13",
     "typescript": "7.0.2",
-    "vite": "7.3.6",
-    "vitest": "4.1.11"
+    "vite": "8.2.2",
+    "vitest": "5.0.0"
   }
 }
