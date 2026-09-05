@@ -16,7 +16,12 @@ The CONSTITUTION.md file contains all engineering rules and conventions that sho
 <!-- These overrides will be preserved during dd-dm pull operations -->
 
 Read [contributor startup](docs/development.md), [architecture](docs/architecture.md),
-and [capability status](docs/capabilities.md) before implementation. Focused guides
-for development, budgeting, recovery, and QA live in `docs/skills/`.
+and [capability status](docs/capabilities.md) before implementation. Use the relevant
+project skill for the work:
+
+- [Development](.agents/skills/duckit-development/SKILL.md)
+- [Classic budgeting](.agents/skills/duckit-budgeting/SKILL.md)
+- [Migration and recovery](.agents/skills/duckit-recovery/SKILL.md)
+- [QA](.agents/skills/duckit-qa/SKILL.md)
 
 <!-- dd-dm:custom:end -->

@@ -8,5 +8,11 @@
 6. Every implementation slice needs independent review and recorded QA before closure.
 7. Commit atomic Conventional Commits; push only reviewed, passing batches.
 
-Project guides in `docs/skills/` cover development, budgeting rules, recovery and QA.
-Capability status distinguishes usable behavior from pending acceptance gates.
+Use the project skill relevant to the work:
+
+- [Development and storage isolation](../.agents/skills/duckit-development/SKILL.md)
+- [Classic budgeting rules](../.agents/skills/duckit-budgeting/SKILL.md)
+- [Migration and recovery](../.agents/skills/duckit-recovery/SKILL.md)
+- [Verification and desktop QA](../.agents/skills/duckit-qa/SKILL.md)
+
+[Capability status](capabilities.md) distinguishes usable behavior from pending acceptance gates.
