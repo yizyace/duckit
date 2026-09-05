@@ -127,21 +127,51 @@ export class SyncIO {
   }
   async credential(cwd: string, connect: boolean): Promise<string> {
     const gcm = join(this.runtime.directory, 'git/libexec/git-core/git-credential-manager')
-    if (connect)
-      await this.run(gcm, ['github', 'login', '--browser'], cwd, undefined, undefined, true)
-    const fields = await this.run(
+    const stored = async () => {
+      const fields = await this.run(
+        gcm,
+        ['get', '--no-ui'],
+        cwd,
+        undefined,
+        'protocol=https\nhost=github.com\n\n',
+      )
+      const token = fields
+        .split(/\r?\n/)
+        .find((line) => line.startsWith('password='))
+        ?.slice(9)
+      if (!token) throw new Error('No GitHub credential is available. Connect GitHub in Settings.')
+      return token
+    }
+    let token: string | null = null
+    try {
+      token = await stored()
+    } catch (error) {
+      if (!connect) throw error
+      this.assertRunning()
+    }
+    let force = false
+    if (token) {
+      if (!connect) return token
+      try {
+        await this.api('/user', 'GET', undefined, token)
+        return token
+      } catch (error) {
+        // A revoked token needs an explicit browser refresh. A network failure or
+        // forbidden request says nothing about whether the stored credential is valid.
+        if (!(error instanceof GitHubError) || error.status !== 401) throw error
+        this.assertRunning()
+        force = true
+      }
+    }
+    await this.run(
       gcm,
-      ['get', '--no-ui'],
+      ['github', 'login', '--browser', ...(force ? ['--force'] : [])],
       cwd,
       undefined,
-      'protocol=https\nhost=github.com\n\n',
+      undefined,
+      true,
     )
-    const token = fields
-      .split(/\r?\n/)
-      .find((line) => line.startsWith('password='))
-      ?.slice(9)
-    if (!token) throw new Error('No GitHub credential is available. Connect GitHub in Settings.')
-    return token
+    return stored()
   }
   async api(path: string, method: string, body: unknown, token: string): Promise<unknown> {
     this.assertRunning()
