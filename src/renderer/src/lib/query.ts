@@ -1,15 +1,12 @@
 import { QueryClient } from '@tanstack/react-query'
 import type { AppState } from '../../../shared/contracts'
 export const stateKey = ['state'] as const
-// Main pushes freshness through onStatus and every command answers with the next
-// AppState, so a background refetch can only replace a newer snapshot with an older one.
+// Main can activate a budget before status bookkeeping or its response fails.
+// Keep normal focus/reconnect freshness; cancellation below protects accepted saves.
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-        staleTime: Infinity,
         retry: false,
       },
     },

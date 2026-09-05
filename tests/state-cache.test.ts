@@ -46,34 +46,43 @@ describe('renderer state cache', () => {
       client.clear()
     }
   })
-  it('does not refetch the budget when the window is focused or the network returns', async () => {
-    const client = createQueryClient()
-    client.mount()
-    let fetches = 0
-    const observer = new QueryObserver<AppState>(client, {
-      queryKey: stateKey,
-      queryFn: async () => {
-        fetches += 1
-        return snapshot(5)
-      },
-      retry: false,
-    })
-    const unsubscribe = observer.subscribe(() => {})
-    try {
-      await observer.refetch()
-      const fetched = fetches
-      focusManager.setFocused(false)
-      focusManager.setFocused(true)
-      onlineManager.setOnline(false)
-      onlineManager.setOnline(true)
-      await settle()
-      expect(fetches).toBe(fetched)
-    } finally {
-      unsubscribe()
-      client.unmount()
-      client.clear()
-      focusManager.setFocused(undefined)
-      onlineManager.setOnline(true)
-    }
-  })
+  it.each(['focus', 'reconnect'] as const)(
+    'recovers a newer authoritative budget on %s after activation without a success response',
+    async (trigger) => {
+      const client = createQueryClient()
+      client.mount()
+      let revision = 5
+      const observer = new QueryObserver<AppState>(client, {
+        queryKey: stateKey,
+        queryFn: async () => snapshot(revision),
+        retry: false,
+      })
+      const unsubscribe = observer.subscribe(() => {})
+      try {
+        await observer.refetch()
+        expect(client.getQueryData<AppState>(stateKey)?.budget?.revision).toBe(5)
+        // A candidate was activated, but sync bookkeeping failed before publishing
+        // 'synced' or returning AppState. App.onStatus updates only the status here.
+        revision = 6
+        client.setQueryData<AppState>(stateKey, (previous) =>
+          previous ? { ...previous, status: { ...previous.status, remote: 'offline' } } : previous,
+        )
+        expect(client.getQueryData<AppState>(stateKey)?.budget?.revision).toBe(5)
+        if (trigger === 'focus') {
+          focusManager.setFocused(false)
+          focusManager.setFocused(true)
+        } else {
+          onlineManager.setOnline(false)
+          onlineManager.setOnline(true)
+        }
+        await expect.poll(() => client.getQueryData<AppState>(stateKey)?.budget?.revision).toBe(6)
+      } finally {
+        unsubscribe()
+        client.unmount()
+        client.clear()
+        focusManager.setFocused(undefined)
+        onlineManager.setOnline(true)
+      }
+    },
+  )
 })
