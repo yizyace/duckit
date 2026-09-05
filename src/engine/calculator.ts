@@ -124,7 +124,9 @@ export function calculateBudget(budget: Budget, from: string, to: string): Budge
     let nextCharge = 0n
     const categories = budget.categories.map((category): CategoryMonth => {
       const allocation = allocations.get(month)?.get(category.id)
-      const rule = allocation?.overspending ?? rules.get(category.id) ?? 'AffectsBuffer'
+      /** Classic Pre-YNAB debt carries its negative balance inside the category by default. */
+      const inherited = rules.get(category.id) ?? (category.debt ? 'Confined' : 'AffectsBuffer')
+      const rule = allocation?.overspending ?? inherited
       rules.set(category.id, rule)
       const categoryBudgeted = BigInt(allocation?.amount ?? '0')
       const categoryActivity = activity.get(month)?.get(category.id) ?? 0n

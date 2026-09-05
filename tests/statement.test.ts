@@ -106,6 +106,46 @@ describe('statement parsing', () => {
     },
   )
 
+  it('accepts real Quicken QFX vendor tags with dotted names, still rejecting attributes and lowercase', () => {
+    const qfx = `OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+ENCODING:USASCII
+CHARSET:1252
+
+<OFX>
+<SIGNONMSGSRSV1>
+<SONRS>
+<STATUS>
+<CODE>0
+<SEVERITY>INFO
+</STATUS>
+<INTU.BID>3000
+<INTU.USERID>demo
+</SONRS>
+</SIGNONMSGSRSV1>
+<BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>USD</CURDEF><BANKACCTFROM><BANKID>123</BANKID><ACCTID>synthetic</ACCTID><ACCTTYPE>CHECKING</ACCTTYPE></BANKACCTFROM><BANKTRANLIST><DTSTART>20260901</DTSTART><DTEND>20260930</DTEND>${item()}</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1>
+</OFX>
+`
+    const candidate = preview(qfx, blank(), 'bank.qfx')
+    expect(candidate.rows[0]).toMatchObject({
+      date: '2026-09-04',
+      amount: '-1234',
+      bankId: 'bank-1',
+      payee: 'Shop & Co',
+      memo: 'Weekly food',
+    })
+    expect(() =>
+      preview(qfx.replace('<INTU.BID>', '<INTU.BID TYPE="1">'), blank(), 'bank.qfx'),
+    ).toThrow('unsupported markup')
+    expect(() => preview(qfx.replace('<INTU.BID>', '<intu.bid>'), blank(), 'bank.qfx')).toThrow(
+      'unsupported markup',
+    )
+    expect(() => preview(qfx.replace('<INTU.BID>', '<INTU.bid>'), blank(), 'bank.qfx')).toThrow(
+      'unsupported markup',
+    )
+  })
+
   it('supports declared Windows-1252 OFX without silent replacement characters', () => {
     const text = ofx(item().replace('Shop &amp; Co', 'Café'), true)
     const data = Uint8Array.from([...text].map((char) => char.charCodeAt(0)))
