@@ -6,6 +6,7 @@ resources/runtime/
 test-results/
 playwright-report/
 coverage/
+.vitest/
 reports/
 .DS_Store
 .env*
