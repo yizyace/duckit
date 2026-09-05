@@ -538,10 +538,11 @@ export function RegisterView({
               className="register-edit-link"
               type="button"
               onClick={() => setTransactionEditor(row.original.transaction)}
-              aria-label={`Edit ${row.original.date} ${row.original.payee} ${money(row.original.amount, budget.currency)}`}
             >
+              <span className="sr-only">Edit {row.original.date} </span>
               <span>{row.original.payee}</span>
               {row.original.transaction.memo && <small>{row.original.transaction.memo}</small>}
+              <span className="sr-only"> {money(row.original.amount, budget.currency)}</span>
             </button>
           ),
         }),
@@ -730,7 +731,12 @@ export function RegisterView({
               <Button variant="outline" size="sm" onClick={() => setBulk('delete')}>
                 Delete
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelection(new Set())}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-foreground"
+                onClick={() => setSelection(new Set())}
+              >
                 Clear selection
               </Button>
             </div>
