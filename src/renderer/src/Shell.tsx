@@ -41,7 +41,10 @@ const navigation = [
   { id: 'reports', label: 'Reports', icon: ChartNoAxesCombined, shortcut: '3' },
 ] as const
 
+const navLink = 'nav-link disabled:pointer-events-none disabled:opacity-50'
+
 const descriptions: Record<string, string> = {
+  welcome: 'Create a budget or bring your history.',
   budget: 'Make room for what matters.',
   accounts: 'A clear view of your everyday money.',
   reports: 'See the story behind your spending.',
@@ -111,20 +114,24 @@ export function Shell({ budget, status, view, setView, children, actions, subtit
   const { resolvedTheme, setTheme } = useTheme()
   const heading = useRef<HTMLHeadingElement>(null)
   const previousView = useRef(view)
+  // Onboarding renders the welcome form whatever `view` says, so nothing may navigate.
+  const onboarding = !budget
   const selectedAccount = view.startsWith('account:')
     ? budget?.accounts.find((account) => account.id === view.slice('account:'.length))
     : undefined
-  const title =
-    selectedAccount?.name ??
-    (view === 'accounts'
-      ? 'All accounts'
-      : view === 'reports'
-        ? 'Reports'
-        : view === 'settings'
-          ? 'Settings'
-          : 'Budget')
+  const title = onboarding
+    ? 'Welcome'
+    : (selectedAccount?.name ??
+      (view === 'accounts'
+        ? 'All accounts'
+        : view === 'reports'
+          ? 'Reports'
+          : view === 'settings'
+            ? 'Settings'
+            : 'Budget'))
 
   useEffect(() => {
+    if (onboarding) return
     const navigate = (event: KeyboardEvent) => {
       if (
         !event.metaKey ||
@@ -143,7 +150,7 @@ export function Shell({ budget, status, view, setView, children, actions, subtit
     }
     window.addEventListener('keydown', navigate)
     return () => window.removeEventListener('keydown', navigate)
-  }, [setView])
+  }, [onboarding, setView])
 
   useEffect(() => {
     if (previousView.current !== view) heading.current?.focus({ preventScroll: true })
@@ -211,9 +218,10 @@ export function Shell({ budget, status, view, setView, children, actions, subtit
               <li key={id}>
                 <button
                   type="button"
-                  className={cn('nav-link', view === id && 'is-active')}
-                  aria-current={view === id ? 'page' : undefined}
-                  aria-keyshortcuts={`Meta+${shortcut}`}
+                  className={cn(navLink, !onboarding && view === id && 'is-active')}
+                  aria-current={!onboarding && view === id ? 'page' : undefined}
+                  aria-keyshortcuts={onboarding ? undefined : `Meta+${shortcut}`}
+                  disabled={onboarding}
                   onClick={() => setView(id)}
                 >
                   <Icon aria-hidden="true" />
@@ -257,8 +265,9 @@ export function Shell({ budget, status, view, setView, children, actions, subtit
         <div className="sidebar-footer">
           <button
             type="button"
-            className={cn('nav-link', view === 'settings' && 'is-active')}
-            aria-current={view === 'settings' ? 'page' : undefined}
+            className={cn(navLink, !onboarding && view === 'settings' && 'is-active')}
+            aria-current={!onboarding && view === 'settings' ? 'page' : undefined}
+            disabled={onboarding}
             onClick={() => setView('settings')}
           >
             <Settings aria-hidden="true" />
@@ -301,7 +310,7 @@ export function Shell({ budget, status, view, setView, children, actions, subtit
                 {subtitle ??
                   (selectedAccount
                     ? 'Every transaction has a place.'
-                    : (descriptions[view] ?? descriptions.budget))}
+                    : (descriptions[onboarding ? 'welcome' : view] ?? descriptions.budget))}
               </p>
             </div>
             {actions && <div className="header-actions">{actions}</div>}
