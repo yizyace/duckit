@@ -1,5 +1,5 @@
 import { it, expect } from 'vitest'
-import { access, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { access, mkdtemp, rm, writeFile, readFile, readdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { demoBudget } from '../src/shared/demo'
@@ -85,5 +85,39 @@ it('ignores a backup whose payload is missing and snapshots again', async () => 
     ).resolves.toBeUndefined()
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+}, 120000)
+
+it('removes a rejected native restore candidate without deleting active data, retained history or backups', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'duckit-backup-rejected-'))
+  try {
+    const workspace = new Workspace(root, {
+      directory: resolve('resources/runtime', process.arch),
+      stateRoot: join(root, 'config'),
+    })
+    await workspace.initialize()
+    const historical = await workspace.candidate(demoBudget())
+    await workspace.activate(historical)
+    const currentBudget = demoBudget()
+    currentBudget.name = 'Current synthetic budget'
+    const active = await workspace.candidate(currentBudget)
+    await workspace.activate(active)
+    const backups = new Backups(workspace),
+      selected = (await backups.snapshot())!
+    const metadataPath = join(backups.destination, selected.id, 'metadata.json')
+    await writeFile(metadataPath, JSON.stringify({ ...selected, checksum: '0'.repeat(64) }))
+    const directories = (await readdir(join(root, 'budgets'))).sort()
+    const pointer = await readFile(join(root, 'active.json'), 'utf8')
+    await expect(backups.restore(selected.id)).rejects.toThrow('Backup contents failed validation')
+    expect((await readdir(join(root, 'budgets'))).sort()).toEqual(directories)
+    expect(await readFile(join(root, 'active.json'), 'utf8')).toBe(pointer)
+    expect(workspace.database).toBe(active)
+    expect((await active.read()).name).toBe(currentBudget.name)
+    expect((await historical.read()).name).toBe(demoBudget().name)
+    const remaining = await backups.list()
+    expect(remaining.map((b) => b.id)).toContain(selected.id)
+    expect(remaining.some((b) => b.id !== selected.id && b.checksum !== '0'.repeat(64))).toBe(true)
+  } finally {
+    await rm(root, { recursive: true, force: true, maxRetries: 3 })
   }
 }, 120000)
