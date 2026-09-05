@@ -117,9 +117,9 @@ function initialSplits(budget: Budget, transaction?: Transaction, scheduled = fa
 
 export type TransactionEditorProps = {
   budget: Budget
-  accountId?: string
-  transaction?: Transaction
-  schedule?: Schedule
+  accountId?: string | undefined
+  transaction?: Transaction | undefined
+  schedule?: Schedule | undefined
   scheduled?: boolean
   onCommand: CommandHandler
   onClose: () => void
