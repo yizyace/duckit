@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { assertValidBudget } from '../../engine'
 import type { BackupInfo } from '../../shared/contracts'
+import { canonicalBudget } from '../storage/canonical-budget'
 import { Database } from '../storage/database'
 import { Workspace } from '../storage/workspace'
 import { atomicWrite } from '../storage/atomic-file'
@@ -16,6 +17,8 @@ const metadataSchema = z.object({
   revision: z.number().int().nonnegative(),
   budgetId: z.string(),
   checksum: z.string().regex(/^[a-f0-9]{64}$/),
+  // Unversioned backups use the historical encoding, which did not protect split order.
+  checksumVersion: z.union([z.literal(1), z.literal(2)]).default(1),
 })
 type Metadata = z.infer<typeof metadataSchema>
 export function retainedBackups<T extends BackupInfo>(backups: T[]): T[] {
@@ -71,11 +74,11 @@ export class Backups {
     signal?.throwIfAborted()
     const database = new Database(active.directory, { ...active.runtime, signal })
     const budget = await database.read(),
-      checksum = digest(stableBudget(budget)),
+      checksum = digest(canonicalBudget(budget)),
       backups = await this.list()
     // `latest` comes from list(), which is what guarantees its payload still exists.
     const latest = backups.find((b) => b.budgetId === budget.id)
-    if (!force && latest?.checksum === checksum) return latest
+    if (!force && latest?.checksumVersion === 2 && latest.checksum === checksum) return latest
     const id = randomUUID(),
       temporary = join(this.destination, `.${id}.pending`),
       final = join(this.destination, id)
@@ -96,13 +99,14 @@ export class Backups {
       ])
       const copy = await new Database(verification, database.runtime).read()
       assertValidBudget(copy)
-      if (digest(stableBudget(copy)) !== checksum) throw new Error('Backup verification failed')
-      const metadata = {
+      if (digest(canonicalBudget(copy)) !== checksum) throw new Error('Backup verification failed')
+      const metadata: Metadata = {
         id,
         createdAt: now.toISOString(),
         revision: budget.revision,
         budgetId: budget.id,
         checksum,
+        checksumVersion: 2,
       }
       await atomicWrite(join(temporary, 'metadata.json'), JSON.stringify(metadata))
       signal?.throwIfAborted()
@@ -144,8 +148,9 @@ export class Backups {
     ])
     const restored = await candidate.read()
     assertValidBudget(restored)
-    if (digest(stableBudget(restored)) !== metadata.checksum)
-      throw new Error('Backup contents failed validation')
+    const encoded =
+      metadata.checksumVersion === 2 ? canonicalBudget(restored) : legacyStableBudget(restored)
+    if (digest(encoded) !== metadata.checksum) throw new Error('Backup contents failed validation')
     // Preserve history in the restored database, but retire local command history from the older snapshot.
     // Revisions increase so an already-open form cannot accidentally target the restored state.
     const after = { ...restored, revision: Math.max(before.revision, restored.revision) + 1 }
@@ -158,7 +163,8 @@ export class Backups {
     await this.workspace.activate(candidate)
   }
 }
-function stableBudget(value: unknown): string {
+// Compatibility only: never use this order-insensitive encoding for a new backup.
+function legacyStableBudget(value: unknown): string {
   function stable(v: unknown): unknown {
     if (Array.isArray(v))
       return v.map(stable).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))

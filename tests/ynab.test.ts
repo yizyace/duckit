@@ -446,3 +446,209 @@ describe('independent review regressions', () => {
     expect(() => reconstructYnab(zipped({}, orphan))).toThrow('missing parent')
   })
 })
+
+describe('legacy split order during causal replay', () => {
+  const child = (id: string, revision: string, amount: number, extra: Row = {}): Row => ({
+    entityType: 'subTransaction',
+    entityId: id,
+    entityVersion: revision,
+    parentTransactionId: 'expense',
+    amount,
+    categoryId: 'food',
+    memo: id,
+    ...extra,
+  })
+  function splitParent(revision: string, children?: Row[], scheduled = false): Row {
+    const parent: Row = {
+      ...transaction('expense', revision, -40, 'Category/__Split__'),
+      entityType: scheduled ? 'scheduledTransaction' : 'transaction',
+      frequency: 'Monthly',
+    }
+    if (children === undefined) delete parent.subTransactions
+    else parent.subTransactions = children
+    return parent
+  }
+  function snapshot(scheduled = false): Row {
+    const data = full()
+    const parent = splitParent(
+      'A-8',
+      [child('first', 'A-11', -10), child('second', 'A-12', -30)],
+      scheduled,
+    )
+    if (scheduled) {
+      ;(data.transactions as Row[]).pop()
+      data.scheduledTransactions = [parent]
+    } else (data.transactions as Row[])[1] = parent
+    return data
+  }
+  const splits = (result: ReturnType<typeof reconstructYnab>, scheduled = false) =>
+    scheduled
+      ? result.budget.schedules[0]!.transaction.splits
+      : result.budget.transactions.find((row) => row.id === 'expense')!.splits
+
+  it.each([false, true])(
+    'matches complete snapshot order after a complete parent delta (scheduled=%s)',
+    (scheduled) => {
+      const latest = splitParent(
+        'A-21',
+        [child('second', 'A-22', -30), child('first', 'A-23', -10)],
+        scheduled,
+      )
+      const complete = snapshot(scheduled)
+      ;(complete.fileMetaData as Row).currentKnowledge = 'A-23,B-0'
+      if (scheduled) complete.scheduledTransactions = [latest]
+      else (complete.transactions as Row[])[1] = latest
+      const direct = reconstructYnab(zipped({}, complete))
+      const replayed = reconstructYnab(
+        zipped(
+          {
+            [`${generation}device/reorder.ydiff`]: diff(version, 'A-23,B-0', [latest]),
+          },
+          snapshot(scheduled),
+        ),
+      )
+      expect(replayed.report.errors).toEqual([])
+      expect(splits(replayed, scheduled)).toEqual(splits(direct, scheduled))
+      expect(splits(replayed, scheduled).map((row) => row.id)).toEqual(['second', 'first'])
+    },
+  )
+
+  it('retains positions for changed-only subsets and subsequent omitted arrays', () => {
+    const result = reconstructYnab(
+      zipped(
+        {
+          // Names sort opposite causality; the subset edits second without moving it first.
+          [`${generation}device/z-first.ydiff`]: diff(version, 'A-22,B-0', [
+            splitParent('A-21', [child('second', 'A-22', -30, { memo: 'Edited second' })]),
+          ]),
+          [`${generation}device/a-later.ydiff`]: diff('A-22,B-0', 'A-23,B-0', [
+            { ...splitParent('A-23'), memo: 'Parent edited with no child array' },
+          ]),
+        },
+        snapshot(),
+      ),
+    )
+    expect(result.report.errors).toEqual([])
+    expect(result.report.replayedFiles).toBe(2)
+    expect(splits(result).map((row) => [row.id, row.memo])).toEqual([
+      ['first', 'first'],
+      ['second', 'Edited second'],
+    ])
+  })
+
+  it('preserves standalone edits and empty or null changed-child arrays', () => {
+    const result = reconstructYnab(
+      zipped(
+        {
+          [`${generation}device/edits.ydiff`]: diff(version, 'A-23,B-0', [
+            child('second', 'A-21', -30, { memo: 'Standalone edit' }),
+            splitParent('A-22', []),
+            { ...splitParent('A-23'), subTransactions: null },
+          ]),
+        },
+        snapshot(),
+      ),
+    )
+    expect(result.report.errors).toEqual([])
+    expect(splits(result).map((row) => row.id)).toEqual(['first', 'second'])
+    expect(splits(result)[1]!.memo).toBe('Standalone edit')
+  })
+
+  it('preserves full insertion order across tombstones and subsequent partial edits', () => {
+    const result = reconstructYnab(
+      zipped(
+        {
+          [`${generation}device/insert.ydiff`]: diff(version, 'A-24,B-0', [
+            splitParent('A-21', [
+              child('second', 'A-22', -25),
+              child('new', 'A-23', -5),
+              child('first', 'A-24', -10),
+            ]),
+          ]),
+          [`${generation}device/delete.ydiff`]: diff('A-24,B-0', 'A-28,B-0', [
+            splitParent('A-25', [
+              child('first', 'A-26', -10, { isTombstone: true }),
+              child('new', 'A-27', -5),
+              child('second', 'A-28', -35),
+            ]),
+          ]),
+          [`${generation}device/edit.ydiff`]: diff('A-28,B-0', 'A-30,B-0', [
+            splitParent('A-29', [child('second', 'A-30', -35, { memo: 'Kept last' })]),
+          ]),
+        },
+        snapshot(),
+      ),
+    )
+    expect(result.report.errors).toEqual([])
+    expect(result.report.finalKnowledge).toBe('A-30,B-0')
+    expect(splits(result).map((row) => row.id)).toEqual(['new', 'second'])
+    expect(splits(result).map((row) => row.amount)).toEqual(['-500', '-3500'])
+    expect(result.budget.tombstones).toContainEqual({
+      kind: 'split',
+      id: 'first',
+      revision: 'A-26',
+    })
+  })
+
+  it('rejects a new child without a complete order witness instead of guessing a position', () => {
+    for (const nested of [false, true]) {
+      const added = child('new', 'A-22', 0)
+      const items = nested ? [splitParent('A-21', [added])] : [splitParent('A-21'), added]
+      expect(() =>
+        reconstructYnab(
+          zipped(
+            { [`${generation}device/insert.ydiff`]: diff(version, 'A-22,B-0', items) },
+            snapshot(),
+          ),
+        ),
+      ).toThrow('split order is ambiguous')
+    }
+  })
+
+  it('accepts a later causal file establishing the position of a newly inserted child', () => {
+    const result = reconstructYnab(
+      zipped(
+        {
+          [`${generation}device/z-new.ydiff`]: diff(version, 'A-21,B-0', [child('new', 'A-21', 0)]),
+          [`${generation}device/a-order.ydiff`]: diff('A-21,B-0', 'A-25,B-0', [
+            splitParent('A-22', [
+              child('new', 'A-23', 0),
+              child('first', 'A-24', -10),
+              child('second', 'A-25', -30),
+            ]),
+          ]),
+        },
+        snapshot(),
+      ),
+    )
+    expect(result.report.errors).toEqual([])
+    expect(splits(result).map((row) => row.id)).toEqual(['new', 'first', 'second'])
+  })
+
+  it('rejects equal full vectors that disagree only on split order', () => {
+    const other = snapshot()
+    ;((other.transactions as Row[])[1]!.subTransactions as Row[]).reverse()
+    expect(() =>
+      reconstructYnab(zipped({ [`${generation}other/Budget.yfull`]: other }, snapshot())),
+    ).toThrow('conflicting entity states')
+  })
+
+  it('rejects concurrent parent order edits even if child amounts do not change', () => {
+    expect(() =>
+      reconstructYnab(
+        zipped(
+          {
+            [`${generation}device/a.ydiff`]: diff(version, 'A-21,B-0', [splitParent('A-21')]),
+            [`${generation}device/b.ydiff`]: diff(
+              version,
+              'A-20,B-3',
+              [splitParent('B-1', [child('second', 'B-2', -30), child('first', 'B-3', -10)])],
+              'B',
+            ),
+          },
+          snapshot(),
+        ),
+      ),
+    ).toThrow('Concurrent entity revisions')
+  })
+})

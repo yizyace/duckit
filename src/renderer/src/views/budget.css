@@ -66,6 +66,7 @@
   font-weight: 400;
 }
 .budget-amount {
+  position: relative;
   border: 1px solid var(--input);
   padding: 6px 9px;
   border-radius: 6px;

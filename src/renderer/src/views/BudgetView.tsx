@@ -35,6 +35,20 @@ export function BudgetView({ budget, onCommand }: Props) {
     () => calculateBudget(budget, month, addMonths(month, shownMonths - 1)),
     [budget, month, shownMonths],
   )
+  const allocations = useMemo(() => {
+    const byMonth = new Map<string, Map<string, Allocation>>()
+    for (const allocation of budget.allocations) {
+      let categories = byMonth.get(allocation.month)
+      if (!categories) byMonth.set(allocation.month, (categories = new Map()))
+      if (!categories.has(allocation.categoryId)) categories.set(allocation.categoryId, allocation)
+    }
+    return byMonth
+  }, [budget.allocations])
+  const categoryMonths = useMemo(
+    () =>
+      new Map(months.map((m) => [m.month, new Map(m.categories.map((c) => [c.categoryId, c]))])),
+    [months],
+  )
   const first = months[0]!
   const openCategory = (value?: Category) =>
     setCategory({
@@ -217,10 +231,8 @@ export function BudgetView({ budget, onCommand }: Props) {
                             {c.hidden && <span className="category-kind">Hidden</span>}
                           </th>
                           {months.flatMap((m) => {
-                            const cell = m.categories.find((r) => r.categoryId === c.id)!
-                            const allocation = budget.allocations.find(
-                              (a) => a.categoryId === c.id && a.month === m.month,
-                            ) ?? {
+                            const cell = categoryMonths.get(m.month)!.get(c.id)!
+                            const allocation = allocations.get(m.month)?.get(c.id) ?? {
                               categoryId: c.id,
                               month: m.month,
                               amount: '0',

@@ -4,6 +4,8 @@ import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { demoBudget } from '../src/shared/demo'
 import { Workspace } from '../src/main/storage/workspace'
+import { canonicalBudget } from '../src/main/storage/canonical-budget'
+import { splitBudget } from './helpers/split-budget'
 import { Backups, retainedBackups } from '../src/main/recovery/backups'
 it('retains the union of recent, hourly, daily and monthly snapshots', () => {
   const data = Array.from({ length: 4000 }, (_, i) => ({
@@ -25,11 +27,12 @@ it('verifies native backups and restores separately while destination failures p
       stateRoot: join(root, 'config'),
     })
     await workspace.initialize()
-    const original = demoBudget()
+    const original = splitBudget()
     await workspace.activate(await workspace.candidate(original))
     const backups = new Backups(workspace),
       first = await backups.snapshot()
     expect(first).not.toBeNull()
+    expect(first?.checksumVersion).toBe(2)
     expect(await backups.snapshot()).toEqual(first)
     const database = workspace.database!,
       before = await database.read(),
@@ -37,7 +40,18 @@ it('verifies native backups and restores separately while destination failures p
     await database.sql('START TRANSACTION;' + database.replaceSQL(before, after) + 'COMMIT;')
     await backups.restore(first!.id)
     expect((await workspace.database!.read()).name).toBe(original.name)
-    expect((await workspace.database!.read()).revision).toBeGreaterThan(1)
+    const restored = await workspace.database!.read()
+    expect(restored.revision).toBeGreaterThan(1)
+    expect(canonicalBudget({ ...restored, revision: original.revision })).toBe(
+      canonicalBudget(original),
+    )
+    expect(
+      restored.transactions.find((t) => t.id === 'groceries')!.splits.map((s) => s.id),
+    ).toEqual(['first', 'second'])
+    expect(restored.schedules[0]!.transaction.splits.map((s) => s.id)).toEqual([
+      'scheduled-first',
+      'scheduled-second',
+    ])
     const blocked = join(root, 'not-a-directory')
     await writeFile(blocked, 'synthetic disk failure')
     const bad = new Backups(workspace, blocked)

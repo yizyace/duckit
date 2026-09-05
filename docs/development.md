@@ -15,9 +15,11 @@ access. Run `npm run electron:install` explicitly before invoking electron-vite
 directly. The initial download needs network access or a populated Electron cache.
 
 Renderer edits use Fast Refresh and main-process edits restart Electron with
-`--watch`. Preload edits rebuild successfully, but the existing navigation guard
-can block the automatic renderer reload; manually reload the window to use the new
-preload output.
+`--watch`. Preload edits rebuild and reload the current development document;
+unrelated navigation stays blocked. Fast Refresh preserves component drafts when
+React can retain the component, while a preload reload or main restart resets
+renderer state. `npx playwright test tests/e2e/development.spec.ts` exercises all
+three paths in a temporary source copy and isolated storage root.
 
 Use [agent work](agent-work.md) for module ownership, bounded delegation, useful
 commands and evidence handoff. It points to the maintained source for each concern;

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { applyChanges } from '../src/engine'
+import { splitBudget } from './helpers/split-budget'
 import { demoBudget } from '../src/shared/demo'
 import type { Change } from '../src/shared/contracts'
 import { Workspace } from '../src/main/storage/workspace'
@@ -60,13 +61,13 @@ async function fixture() {
       return { ...repository }
     },
   }
-  const workspace = async (name: string, populated = false) => {
+  const workspace = async (name: string, populated = false, budget = demoBudget()) => {
     const ws = new Workspace(join(root, name), {
       ...runtime,
       stateRoot: join(root, name, 'runtime'),
     })
     await ws.initialize()
-    if (populated) await ws.activate(await ws.candidate(demoBudget()))
+    if (populated) await ws.activate(await ws.candidate(budget))
     let backups = 0
     const sync = new SyncManager(
       ws,
@@ -256,11 +257,37 @@ describe('native private-budget synchronization', () => {
     expect(await f.gitHash()).toBe(hash)
   }, 120000)
 
+  it('advances a same-revision native fast-forward when only posted and scheduled split positions change', async () => {
+    const f = await fixture(),
+      a = await f.workspace('a', true, splitBudget()),
+      b = await f.workspace('b')
+    await a.sync.connect('synthetic/budget')
+    await b.sync.connect('synthetic/budget')
+    const database = a.ws.database!,
+      before = await database.read(),
+      incoming = structuredClone(before)
+    incoming.transactions.find((t) => t.id === 'groceries')!.splits.reverse()
+    incoming.schedules[0]!.transaction.splits.reverse()
+    // Model compatible native history with a non-increasing application revision,
+    // which the fast-forward guard explicitly supports. Normal UI edits increment it.
+    await database.sql('START TRANSACTION;' + database.replaceSQL(before, incoming) + 'COMMIT;')
+    await database.checkpoint('Synthetic native order change')
+    await a.sync.sync()
+    await b.sync.sync()
+    const result = await b.ws.database!.read()
+    expect(result.revision).toBe(before.revision + 1)
+    expect(result.transactions).toEqual(incoming.transactions)
+    expect(result.schedules).toEqual(incoming.schedules)
+    const fresh = await f.workspace('fresh-order')
+    await fresh.sync.connect('synthetic/budget')
+    expect(await fresh.ws.database!.read()).toEqual(result)
+  }, 120000)
+
   it.each(['local', 'remote'] as const)(
     'chooses the complete %s snapshot with both parents, receipts and independent deletions intact',
     async (choice) => {
       const f = await fixture(),
-        a = await f.workspace('a', true),
+        a = await f.workspace('a', true, splitBudget()),
         b = await f.workspace('b')
       await a.sync.connect('synthetic/budget')
       await b.sync.connect('synthetic/budget')
@@ -289,6 +316,7 @@ describe('native private-budget synchronization', () => {
       const result = await a.ws.database!.read()
       expect(result.accounts).toEqual(selected.accounts)
       expect(result.transactions).toEqual(selected.transactions)
+      expect(result.schedules).toEqual(selected.schedules)
       expect(result.tombstones).toEqual(selected.tombstones)
       expect(result.revision).toBe(Math.max(review.local.revision, review.remote.revision) + 1)
       expect(await a.ws.database!.history()).toEqual({ canUndo: false, canRedo: false })

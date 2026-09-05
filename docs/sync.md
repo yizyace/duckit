@@ -24,7 +24,7 @@ An empty workspace can recover an existing repository by connecting and validati
 
 Each synchronization checkpoints durable local writes, rechecks repository identity/privacy, and observes the remote Git ref. Unchanged local and remote revisions require no push. Uploads are followed by a fresh Dolt clone and exact normalized budget/head verification; a changing remote during verification is retried on a later sync.
 
-Incoming work happens in a separate database built with native Dolt backup/restore. A fast-forward is validated before atomic activation, with a local backup first. If incoming domain changes carry a non-increasing application revision, the candidate receives a higher revision so retained forms become stale. Normal monotonically increasing revisions do not create extra synchronization commits.
+Incoming work happens in a separate database built with native Dolt backup/restore. A fast-forward is validated before atomic activation, with a local backup first. If incoming domain changes carry a non-increasing application revision, the candidate receives a higher revision so retained forms become stale. Normal monotonically increasing revisions do not create extra synchronization commits. Budget comparisons canonicalize unordered SQL collections and reconciliation membership, preserve duplicates for separate domain validation, and retain posted and scheduled split order. An order-only split change therefore also triggers the non-increasing-revision guard.
 
 Divergence exposes independent copies of both complete budgets and their Dolt commit hashes. The original active database stays in place, and the candidate containing both histories is retained. Resolving a conflict:
 

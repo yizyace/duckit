@@ -98,6 +98,7 @@
   text-align: inherit;
 }
 .register-edit-link {
+  position: relative;
   display: block;
   min-height: 30px;
   max-width: 100%;
@@ -113,6 +114,9 @@
   margin-top: 4px;
   color: var(--muted-foreground);
   font-size: 11px;
+}
+.register-table tr[data-selected] .register-edit-link small {
+  color: var(--foreground);
 }
 .register-cleared {
   display: flex;

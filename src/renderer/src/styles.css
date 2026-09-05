@@ -356,7 +356,7 @@
   margin-top: 1px;
 }
 .status-detail {
-  color: var(--destructive);
+  color: var(--foreground);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
