@@ -84,7 +84,17 @@ function syncOperation<T>(operation: () => Promise<T>): Promise<T> {
 }
 function background() {
   if (quitting || backgroundSync || !service || startupError) return
-  void syncOperation(() => manager.sync()).catch(() => {})
+  // sync() publishes its own status before rejecting; never leave a stale success behind.
+  void syncOperation(() => manager.sync()).catch((error: unknown) => {
+    if (service.status.remote === 'synced' || service.status.remote === 'syncing')
+      service.publish({
+        remote: 'offline',
+        message:
+          error instanceof Error && error.message
+            ? error.message
+            : 'Background synchronization failed. Your budget is saved locally.',
+      })
+  })
 }
 function resultError(error: unknown): OperationResult<never> {
   const code =
