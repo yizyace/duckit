@@ -288,6 +288,16 @@ describe('statement preview and approval', () => {
     expect(budget.transactions).toEqual([])
   })
 
+  it('keeps repeated purchases separate when a shared Reference column is not a bank ID', () => {
+    const budget = blank()
+    const text = 'Date,Payee,Amount,Reference\n2026-09-04,Shop,-5.00,POS\n2026-09-04,Shop,-5.00,POS'
+    const candidate = preview(text, budget)
+    expect(candidate.rows.map((row) => row.bankId)).toEqual([null, null])
+    expect(candidate.rows.map((row) => row.disposition)).toEqual(['new', 'new'])
+    expect(applyStatement(candidate, budget, []).transactions).toHaveLength(2)
+    expect(preview('Date,Amount,Reference Number\n2026-09-04,-1,POS').rows[0]!.bankId).toBe(null)
+  })
+
   it('deduplicates bank IDs only in the selected account and preserves rows with distinct IDs', () => {
     const budget = blank()
     existing(budget, { bankId: 'bank-1' })
