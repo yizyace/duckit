@@ -75,6 +75,20 @@ jobs:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: node -e "require('node:assert/strict').equal(process.arch, process.env.EXPECTED_ARCH)"
       - run: npm ci
+      - name: Install Electron before testing
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if npm run electron:install; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            echo "::warning::Electron installation failed (attempt $attempt of 3); retrying setup."
+            sleep "$((attempt * 5))"
+          done
       - name: Verify bundled runtime downloads
         env:
           TARGET_ARCH: ${{ matrix.arch }}
