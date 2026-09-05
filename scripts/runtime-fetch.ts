@@ -6,6 +6,8 @@ import {
   validateArchivePaths,
   verifyDigest,
   verifyTreeLinks,
+  verifyNativeTree,
+  runtimeBinaries,
 } from './runtime.ts'
 import type { Architecture, Asset } from './runtime.ts'
 
@@ -72,6 +74,8 @@ for (const arch of architectures) {
     await cp(path.join(candidate, 'dolt/LICENSES'), path.join(licenses, 'Dolt-LICENSES'))
     await cp(path.join(candidate, 'git/libexec/git-core/NOTICE'), path.join(licenses, 'GCM-NOTICE'))
     await writeFile(path.join(candidate, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+    const nativeCode = await verifyNativeTree(candidate, arch, runtimeBinaries)
+    console.log(`Verified ${nativeCode.length} Mach-O files support native ${arch}.`)
     try {
       await rename(destination, previous)
       previousMoved = true

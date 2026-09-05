@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { readFile, readdir, realpath, lstat } from 'node:fs/promises'
+import { readFile, readdir, realpath, lstat, open } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
@@ -63,6 +63,108 @@ export async function verifyTreeLinks(directory: string, root = directory): Prom
     } else if (stat.isDirectory()) await verifyTreeLinks(entry, canonicalRoot)
   }
 }
+
+export type NativeCodeFile = { file: string; architectures: string[] }
+
+/** Read CPU declarations without executing the binary or requiring Xcode tools. */
+export function machOArchitectures(bytes: Uint8Array): string[] | null {
+  if (bytes.byteLength < 4) return null
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const magic = view.getUint32(0)
+  const thin = [0xfeedface, 0xcefaedfe, 0xfeedfacf, 0xcffaedfe].includes(magic)
+  const fat = [0xcafebabe, 0xbebafeca, 0xcafebabf, 0xbfbafeca].includes(magic)
+  if (!thin && !fat) return null
+  const littleEndian = [0xcefaedfe, 0xcffaedfe, 0xbebafeca, 0xbfbafeca].includes(magic)
+  const cpu = (offset: number) => {
+    const type = view.getUint32(offset, littleEndian)
+    return type === 0x0100000c
+      ? 'arm64'
+      : type === 0x01000007
+        ? 'x64'
+        : `cpu-0x${type.toString(16)}`
+  }
+  if (thin) {
+    const size = [0xfeedfacf, 0xcffaedfe].includes(magic) ? 32 : 28
+    if (bytes.byteLength < size) throw new Error('Truncated Mach-O header')
+    return [cpu(4)]
+  }
+  // Apple's fat_header / fat_arch layouts: cctools/include/mach-o/fat.h.
+  if (bytes.byteLength < 8) throw new Error('Truncated universal Mach-O header')
+  const count = view.getUint32(4, littleEndian)
+  const stride = [0xcafebabf, 0xbfbafeca].includes(magic) ? 32 : 20
+  if (count < 1 || count > 64 || bytes.byteLength < 8 + count * stride)
+    throw new Error('Invalid universal Mach-O architecture table')
+  return [...new Set(Array.from({ length: count }, (_, index) => cpu(8 + index * stride)))].sort()
+}
+
+export async function binaryArchitectures(file: string): Promise<string[] | null> {
+  const handle = await open(file, 'r')
+  try {
+    const buffer = Buffer.alloc(4096)
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
+    return machOArchitectures(buffer.subarray(0, bytesRead))
+  } finally {
+    await handle.close()
+  }
+}
+
+/** Include every nested executable/library; symlink targets must stay in the tree. */
+export async function verifyNativeTree(
+  directory: string,
+  architecture: Architecture,
+  requiredBinaries: string[] = [],
+): Promise<NativeCodeFile[]> {
+  await verifyTreeLinks(directory)
+  const files: NativeCodeFile[] = []
+  async function visit(current: string): Promise<void> {
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      const file = path.join(current, entry.name)
+      // Canonical targets are visited at their real locations; avoid framework cycles.
+      if (entry.isSymbolicLink()) continue
+      if (entry.isDirectory()) await visit(file)
+      else if (entry.isFile()) {
+        const architectures = await binaryArchitectures(file)
+        if (!architectures) continue
+        const relative = path.relative(directory, file)
+        if (!architectures.includes(architecture))
+          throw new Error(
+            `Native ${architecture} code missing from ${relative}: ${architectures.join(', ')}`,
+          )
+        files.push({ file: relative, architectures })
+      }
+    }
+  }
+  await visit(directory)
+  if (!files.length) throw new Error('No Mach-O code found in native bundle')
+  for (const relative of requiredBinaries) {
+    const resolved = path.resolve(directory, relative)
+    const scoped = path.relative(path.resolve(directory), resolved)
+    if (scoped === '..' || scoped.startsWith(`..${path.sep}`) || path.isAbsolute(scoped))
+      throw new Error('Required binary must be inside native bundle')
+    if (!(await binaryArchitectures(resolved))?.includes(architecture))
+      throw new Error(`Required native ${architecture} binary missing: ${relative}`)
+  }
+  return files.sort((a, b) => a.file.localeCompare(b.file))
+}
+
+export function hostArchitecture(arm64Flag: string, nodeArchitecture: string): Architecture {
+  if (arm64Flag.trim() === '1') return 'arm64'
+  // -i ignores unknown sysctl OIDs, which are absent on some genuine Intel Macs.
+  if (['', '0'].includes(arm64Flag.trim()) && nodeArchitecture === 'x64') return 'x64'
+  throw new Error('Could not determine native macOS host architecture')
+}
+
+export async function macHostArchitecture(): Promise<Architecture> {
+  const { stdout } = await run('/usr/sbin/sysctl', ['-in', 'hw.optional.arm64'])
+  return hostArchitecture(stdout, process.arch)
+}
+
+export const runtimeBinaries = [
+  'dolt/bin/dolt',
+  'git/bin/git',
+  'git/libexec/git-core/git-credential-manager',
+  'git/libexec/git-core/git-lfs',
+]
 
 export function runtimePaths(root: string, arch: Architecture) {
   const directory = path.resolve(root, 'resources/runtime', arch)

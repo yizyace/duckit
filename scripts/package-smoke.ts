@@ -6,6 +6,12 @@ import { isAbsolute, join } from 'node:path'
 import { promisify } from 'node:util'
 import { _electron as electron, expect, type ElectronApplication } from '@playwright/test'
 import type { AppState, OperationResult } from '../src/shared/contracts'
+import {
+  binaryArchitectures,
+  macHostArchitecture,
+  runtimeBinaries,
+  verifyNativeTree,
+} from './runtime.ts'
 
 const unwrap = <T>(result: OperationResult<T>): T => {
   if (!result.ok) throw new Error(result.message)
@@ -31,13 +37,26 @@ async function main() {
   const bundle = await realpath(requested)
   const reportPath = options.get('report')
   if (reportPath && !isAbsolute(reportPath)) throw new Error('Report path must be absolute')
+  const executablePath = join(bundle, 'Contents', 'MacOS', 'Duckit')
+  const runtime = join(bundle, 'Contents', 'Resources', 'runtime')
+  const nativeArchitecture = await macHostArchitecture()
+  if (process.arch !== nativeArchitecture)
+    throw new Error(
+      `Run package smoke with native ${nativeArchitecture} Node; translation is not accepted`,
+    )
+  if (!(await binaryArchitectures(executablePath))?.includes(nativeArchitecture))
+    throw new Error(
+      `Package does not support this ${nativeArchitecture} Mac natively. Use a matching native runner; no app was launched.`,
+    )
+  const nativeCode = await verifyNativeTree(bundle, nativeArchitecture, [
+    'Contents/MacOS/Duckit',
+    ...runtimeBinaries.map((file) => `Contents/Resources/runtime/${file}`),
+  ])
   const root = await mkdtemp(join(tmpdir(), 'duckit-packaged-'))
   const home = join(root, 'home')
   await mkdir(home)
   const appData = join(home, 'Library', 'Application Support')
   const userData = join(appData, 'Duckit')
-  const executablePath = join(bundle, 'Contents', 'MacOS', 'Duckit')
-  const runtime = join(bundle, 'Contents', 'Resources', 'runtime')
   const env = {
     HOME: home,
     // macOS Foundation ignores HOME alone. CFFIXED_USER_HOME is verified below
@@ -48,8 +67,6 @@ async function main() {
     LANG: 'en_US.UTF-8',
   }
   const exec = promisify(execFile)
-  const appleSilicon =
-    (await exec('/usr/sbin/sysctl', ['-n', 'hw.optional.arm64'])).stdout.trim() === '1'
   let app: ElectronApplication | undefined
   try {
     // Probe Foundation with the development Electron before the production entry
@@ -80,6 +97,7 @@ async function main() {
       assert.equal(paths.appData, appData)
       assert.equal(paths.userData, userData)
       assert.equal(paths.executable, executablePath)
+      assert.equal(paths.arch, nativeArchitecture)
       const page = await app.firstWindow()
       await page.waitForFunction(() => typeof window.duckit?.getState === 'function')
       return { page, paths }
@@ -188,11 +206,9 @@ async function main() {
     const report = {
       package: bundle,
       architecture: paths.arch,
-      hostArchitecture: appleSilicon ? 'arm64' : 'x64',
-      execution:
-        appleSilicon && paths.arch === 'x64'
-          ? 'translated (Rosetta on Apple Silicon)'
-          : 'native architecture',
+      hostArchitecture: nativeArchitecture,
+      execution: 'native architecture',
+      nativeCode,
       packaged: true,
       storageIsolation: 'verified before synthetic mutations',
       path: env.PATH,

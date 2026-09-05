@@ -9,7 +9,28 @@ import {
   validateArchivePaths,
   verifyDigest,
   verifyTreeLinks,
+  machOArchitectures,
+  verifyNativeTree,
+  hostArchitecture,
 } from '../scripts/runtime.ts'
+
+function thinMachO(architecture: 'arm64' | 'x64', littleEndian = true): Buffer {
+  const bytes = Buffer.alloc(32)
+  const write = littleEndian ? bytes.writeUInt32LE.bind(bytes) : bytes.writeUInt32BE.bind(bytes)
+  write(0xfeedfacf, 0)
+  write(architecture === 'arm64' ? 0x0100000c : 0x01000007, 4)
+  return bytes
+}
+
+function universalMachO(wide = false): Buffer {
+  const stride = wide ? 32 : 20
+  const bytes = Buffer.alloc(8 + 2 * stride)
+  bytes.writeUInt32BE(wide ? 0xcafebabf : 0xcafebabe, 0)
+  bytes.writeUInt32BE(2, 4)
+  bytes.writeUInt32BE(0x01000007, 8)
+  bytes.writeUInt32BE(0x0100000c, 8 + stride)
+  return bytes
+}
 
 describe('pinned portable runtime', () => {
   it('discards inherited Git routing/configuration while retaining the SSH agent', () => {
@@ -81,5 +102,72 @@ describe('pinned portable runtime', () => {
     expect(environment.PATH).not.toContain('/usr/local')
     expect(environment.DOLT_ROOT_PATH).toBe('/synthetic/state')
     expect(environment.GIT_CONFIG_GLOBAL).toBe('/dev/null')
+  })
+
+  it('recognizes thin and universal Mach-O CPU declarations without executing code', () => {
+    expect(machOArchitectures(thinMachO('arm64'))).toEqual(['arm64'])
+    expect(machOArchitectures(thinMachO('x64'))).toEqual(['x64'])
+    expect(machOArchitectures(thinMachO('arm64', false))).toEqual(['arm64'])
+    expect(machOArchitectures(universalMachO())).toEqual(['arm64', 'x64'])
+    expect(machOArchitectures(universalMachO(true))).toEqual(['arm64', 'x64'])
+    expect(machOArchitectures(Buffer.from('#!/bin/sh\nexit 0'))).toBeNull()
+    expect(() => machOArchitectures(thinMachO('arm64').subarray(0, 8))).toThrow('Truncated')
+    expect(() => machOArchitectures(universalMachO().subarray(0, 20))).toThrow('architecture table')
+    const invalid = universalMachO()
+    invalid.writeUInt32BE(65, 4)
+    expect(() => machOArchitectures(invalid)).toThrow('architecture table')
+  })
+
+  it('rejects a nested Intel-only helper even when the main executable is arm64', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'duckit-native-helper-test-'))
+    try {
+      await mkdir(path.join(root, 'nested/libraries'), { recursive: true })
+      await writeFile(path.join(root, 'Duckit'), thinMachO('arm64'))
+      await writeFile(path.join(root, 'nested/libraries/helper'), thinMachO('x64'))
+      await expect(verifyNativeTree(root, 'arm64', ['Duckit'])).rejects.toThrow(
+        'Native arm64 code missing from nested/libraries/helper: x64',
+      )
+      await writeFile(path.join(root, 'nested/libraries/helper'), universalMachO())
+      expect(await verifyNativeTree(root, 'arm64', ['Duckit'])).toHaveLength(2)
+      await expect(verifyNativeTree(root, 'x64', ['Duckit'])).rejects.toThrow(
+        'Native x64 code missing',
+      )
+      await writeFile(path.join(root, 'Duckit'), thinMachO('x64'))
+      expect(await verifyNativeTree(root, 'x64', ['Duckit'])).toHaveLength(2)
+      await writeFile(path.join(root, 'required-helper'), '#!/bin/sh\nexit 0')
+      await expect(verifyNativeTree(root, 'x64', ['required-helper'])).rejects.toThrow(
+        'Required native x64 binary missing',
+      )
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('audits canonical framework code while rejecting external symlink targets', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'duckit-native-links-test-'))
+    const bundle = path.join(root, 'bundle')
+    try {
+      await mkdir(path.join(bundle, 'Versions/A'), { recursive: true })
+      await writeFile(path.join(bundle, 'Versions/A/Framework'), thinMachO('arm64'))
+      await symlink('A', path.join(bundle, 'Versions/Current'))
+      await symlink('Versions/Current/Framework', path.join(bundle, 'Framework'))
+      expect(await verifyNativeTree(bundle, 'arm64', ['Framework'])).toEqual([
+        { file: 'Versions/A/Framework', architectures: ['arm64'] },
+      ])
+      await writeFile(path.join(root, 'external'), thinMachO('arm64'))
+      await symlink('../external', path.join(bundle, 'external'))
+      await expect(verifyNativeTree(bundle, 'arm64')).rejects.toThrow('symlink escapes')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('detects a native Intel host when its optional arm64 sysctl OID is absent', () => {
+    expect(hostArchitecture('', 'x64')).toBe('x64')
+    expect(hostArchitecture('0\n', 'x64')).toBe('x64')
+    expect(hostArchitecture('1\n', 'arm64')).toBe('arm64')
+    expect(hostArchitecture('1\n', 'x64')).toBe('arm64')
+    expect(() => hostArchitecture('', 'arm64')).toThrow('Could not determine')
+    expect(() => hostArchitecture('unexpected', 'x64')).toThrow('Could not determine')
   })
 })
