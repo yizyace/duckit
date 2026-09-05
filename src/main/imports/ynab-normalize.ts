@@ -205,7 +205,17 @@ export function normalizeYnab(
   const convertTransaction = (entity: YnabEntity, template = false): Transaction => {
     const accountId = string(entity.accountId, 'Transaction account')
     const transactionDate = date(entity.date)
-    const children = childSplits.get(entity.entityId) ?? []
+    const unordered = childSplits.get(entity.entityId) ?? []
+    const byId = new Map(unordered.map((child) => [child.entityId, child]))
+    const order = entity.subTransactions
+    if (
+      unordered.length &&
+      (!Array.isArray(order) ||
+        order.length !== unordered.length ||
+        order.some((id) => !byId.has(id)))
+    )
+      throw new Error('Legacy split order is missing or inconsistent')
+    const children = unordered.length ? (order as string[]).map((id) => byId.get(id)!) : []
     const cleared = { Uncleared: 'uncleared', Cleared: 'cleared', Reconciled: 'reconciled' }[
       text(entity.cleared)
     ] as Transaction['cleared'] | undefined
