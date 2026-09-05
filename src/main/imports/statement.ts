@@ -92,6 +92,7 @@ export function previewStatement(
     }
   const seenBankIds = new Map<string, StatementRow>()
   const repeatedInStatement: string[] = []
+  const repeatedInAccount: string[] = []
   const payees = new Map(budget.payees.map((row) => [row.id, row.name]))
   const warnings = [...parsed.warnings]
   const errors: string[] = []
@@ -113,6 +114,9 @@ export function previewStatement(
     // An identical repeat of an in-statement ID is usually a genuine second purchase, so ask.
     const repeatsBankId = Boolean(repeated) && !conflicting && !imported && !duplicate
     if (repeatsBankId) repeatedInStatement.push(describeRow(row, index))
+    // The account already holds this ID; dedup keeps the row out, so say so rather than drop it.
+    else if (repeated && duplicate && !conflicting && !imported)
+      repeatedInAccount.push(describeRow(row, index))
     const disposition = repeatsBankId
       ? 'uncertain'
       : imported || duplicate || repeated
@@ -179,6 +183,11 @@ export function previewStatement(
   if (repeats)
     warnings.push(
       `${repeats} ${repeats === 1 ? 'row repeats' : 'rows repeat'} an earlier bank ID with identical details: ${rowList(repeatedInStatement)}. Bank IDs are not always unique; choose import separately for a genuine repeated purchase, or skip.`,
+    )
+  const held = repeatedInAccount.length
+  if (held)
+    warnings.push(
+      `${held} ${held === 1 ? 'row repeats a bank ID that already exists' : 'rows repeat bank IDs that already exist'} in this account: ${rowList(repeatedInAccount)}. If these are separate purchases, add the second by hand.`,
     )
   if (rows.some((row) => row.disposition === 'uncertain'))
     warnings.push(
