@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { readFile, readdir, realpath, lstat, open } from 'node:fs/promises'
+import { readFile, readdir, realpath, lstat, open, mkdir, cp } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
@@ -13,7 +13,7 @@ export type RuntimeManifest = {
   gitVersion: string
   gcmVersion: string
   gitLfsVersion: string
-  platforms: Record<Architecture, { dolt: Asset; git: Asset }>
+  platforms: Record<Architecture, { dolt: Asset; git: Asset; gcm: Asset; gitLfs: Asset }>
   notices: (Asset & { name: string })[]
 }
 
@@ -23,7 +23,7 @@ export async function readManifest(root = process.cwd()): Promise<RuntimeManifes
   ) as RuntimeManifest
   if (manifest.schemaVersion !== 1) throw new Error('Unsupported runtime manifest version')
   for (const asset of [
-    ...Object.values(manifest.platforms).flatMap((p) => [p.dolt, p.git]),
+    ...Object.values(manifest.platforms).flatMap((p) => [p.dolt, p.git, p.gcm, p.gitLfs]),
     ...manifest.notices,
   ]) {
     if (!/^[a-f0-9]{64}$/.test(asset.sha256) || new URL(asset.url).protocol !== 'https:') {
@@ -48,6 +48,87 @@ export function validateArchivePaths(listing: string): void {
       throw new Error('Unsafe runtime archive path')
     }
   }
+}
+
+/** macOS bsdtar detects both gzip tarballs and ZIP archives. */
+export async function extractRuntimeArchive(
+  archive: string,
+  target: string,
+  stripComponents = 0,
+): Promise<void> {
+  if (!Number.isSafeInteger(stripComponents) || stripComponents < 0)
+    throw new Error('Invalid runtime archive strip count')
+  const { stdout } = await run('/usr/bin/tar', ['-tf', archive], {
+    maxBuffer: 16 * 1024 * 1024,
+  })
+  validateArchivePaths(stdout)
+  await mkdir(target)
+  await run('/usr/bin/tar', ['-xf', archive, '-C', target, `--strip-components=${stripComponents}`])
+  await verifyTreeLinks(target)
+}
+
+function isGcmPath(relative: string): boolean {
+  return (
+    /^(?:[^/]+\.dll|lib[^/]+\.dylib|createdump|NOTICE|uninstall\.sh|git-credential-manager(?:\.(?:deps\.json|runtimeconfig\.json))?)$/.test(
+      relative,
+    ) || /^[a-z]{2}(?:-[A-Za-z]+)?\/System\.CommandLine\.resources\.dll$/.test(relative)
+  )
+}
+
+async function regularFiles(directory: string, root = directory): Promise<string[]> {
+  const files: string[] = []
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const file = path.join(directory, entry.name)
+    if (entry.isDirectory()) files.push(...(await regularFiles(file, root)))
+    else if (entry.isFile()) files.push(path.relative(root, file))
+    else throw new Error('Runtime overlay must contain only regular files and directories')
+  }
+  return files.sort()
+}
+
+/** Replace the complete reviewed GCM payload, never Git's neighboring tools. */
+export async function overlayGcm(source: string, gitCore: string): Promise<void> {
+  const incoming = await regularFiles(source)
+  if (incoming.some((file) => !isGcmPath(file)))
+    throw new Error('Unexpected GCM payload path; review the upstream layout before updating')
+  for (const required of [
+    'git-credential-manager',
+    'git-credential-manager.dll',
+    'git-credential-manager.deps.json',
+    'git-credential-manager.runtimeconfig.json',
+    'gcmcore.dll',
+    'libhostfxr.dylib',
+    'libhostpolicy.dylib',
+    'libcoreclr.dylib',
+    'NOTICE',
+  ]) {
+    if (!incoming.includes(required)) throw new Error(`Incomplete GCM payload: ${required}`)
+  }
+  // These pinned GCM releases have identical file inventories. Reject a changed
+  // layout instead of retaining old runtime DLLs or deleting neighboring Git files.
+  const existing: string[] = []
+  async function inspect(directory: string): Promise<void> {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name)
+      const relative = path.relative(gitCore, file)
+      if (isGcmPath(relative)) {
+        if (!entry.isFile()) throw new Error('GCM destination must be a regular file')
+        existing.push(relative)
+      } else if (entry.isDirectory()) await inspect(file)
+    }
+  }
+  await inspect(gitCore)
+  if (JSON.stringify(existing.sort()) !== JSON.stringify(incoming))
+    throw new Error('GCM payload inventory changed; review replacement scope before updating')
+  for (const file of incoming) await cp(path.join(source, file), path.join(gitCore, file))
+}
+
+export async function overlayGitLfs(source: string, gitCore: string): Promise<void> {
+  const binary = path.join(source, 'git-lfs')
+  const destination = path.join(gitCore, 'git-lfs')
+  if (!(await lstat(binary)).isFile() || !(await lstat(destination)).isFile())
+    throw new Error('Git LFS overlay requires regular source and destination files')
+  await cp(binary, destination)
 }
 
 export async function verifyTreeLinks(directory: string, root = directory): Promise<void> {
