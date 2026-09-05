@@ -12,9 +12,9 @@
   "scripts": {
     "electron:install": "install-electron",
     "predev": "npm run electron:install",
-    "dev": "electron-vite dev --watch",
+    "dev": "node scripts/development.ts",
     "predemo": "npm run electron:install",
-    "demo": "DUCKIT_DEMO=1 electron-vite dev --watch",
+    "demo": "DUCKIT_DEMO=1 node scripts/development.ts",
     "build": "electron-vite build",
     "prestart": "npm run electron:install",
     "start": "electron-vite preview",

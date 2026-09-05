@@ -1,5 +1,6 @@
 import { test, expect, chromium, type Page } from '@playwright/test'
 import { spawn } from 'node:child_process'
+import { appendFileSync } from 'node:fs'
 import { once } from 'node:events'
 import { cp, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -12,7 +13,7 @@ test('refreshes renderer drafts and reloads preload and main without competing p
     storage = join(root, 'storage')
   await mkdir(application)
   await mkdir(storage)
-  for (const path of ['src', 'package.json', 'tsconfig.json', 'electron.vite.config.ts'])
+  for (const path of ['src', 'scripts', 'package.json', 'tsconfig.json', 'electron.vite.config.ts'])
     await cp(join(process.cwd(), path), join(application, path), { recursive: true })
   await symlink(join(process.cwd(), 'node_modules'), join(application, 'node_modules'))
   await mkdir(join(application, 'resources'))
@@ -55,16 +56,15 @@ contextBridge.exposeInMainWorld('__duckitDevelopmentTest', { version: ${version}
     'NO_SANDBOX',
   ])
     delete env[key]
-  const child = spawn(
-    process.execPath,
-    [join(application, 'node_modules/electron-vite/bin/electron-vite.js'), '--watch'],
-    {
-      cwd: application,
-      env,
-      detached: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  )
+  const child = spawn(process.execPath, [join(application, 'scripts/development.ts')], {
+    cwd: application,
+    env,
+    detached: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const logPath = testInfo.outputPath('development.log')
+  await mkdir(testInfo.outputDir, { recursive: true })
+  await writeFile(logPath, '')
   let output = '',
     page: Page | undefined
   let spawnError: Error | undefined
@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('__duckitDevelopmentTest', { version: ${version}
   for (const stream of [child.stdout, child.stderr])
     stream.on('data', (bytes: Buffer) => {
       output += bytes.toString()
+      appendFileSync(logPath, bytes)
     })
   const starts = () =>
     [...output.matchAll(/DUCKIT_DEVELOPMENT_TEST:(\{[^\r\n]+\})/g)].map(
@@ -150,6 +151,15 @@ contextBridge.exposeInMainWorld('__duckitDevelopmentTest', { version: ${version}
       )
       .toBe(1)
     await expect(page.getByLabel('Budget name', { exact: true })).toHaveValue('My budget')
+    const beforePreloadError = output.length
+    await page.getByLabel('Budget name', { exact: true }).fill('Draft survives a failed build')
+    await writeFile(preloadPath, `${preloadSource(1)}\nconst broken = ;`)
+    await expect.poll(() => output.slice(beforePreloadError)).toContain('preload build failed:')
+    await expect(page.getByLabel('Budget name', { exact: true })).toHaveValue(
+      'Draft survives a failed build',
+    )
+    await writeFile(preloadPath, preloadSource(1))
+    await expect(page.getByLabel('Budget name', { exact: true })).toHaveValue('My budget')
     const rendererDocument = page.url()
     await page.evaluate(() => {
       location.href = new URL('/outside-application', location.href).href
@@ -168,7 +178,31 @@ contextBridge.exposeInMainWorld('__duckitDevelopmentTest', { version: ${version}
     for (let version = 1; version <= 3; version++) {
       const previous = starts().at(-1)!,
         after = output.length
-      await writeFile(mainPath, mainSource(version))
+      if (version === 2) {
+        await writeFile(mainPath, `${mainSource(version)}\nconst broken = ;`)
+        await expect.poll(() => output.slice(after)).toContain('main build failed:')
+        expect(starts().at(-1)).toEqual(previous)
+        expect(await page.evaluate(async () => (await window.duckit.getState()).ok)).toBe(true)
+      }
+      if (version === 1) {
+        // Keep the old instance alive long enough to expose an eager replacement.
+        // The runner must wait for its close even when termination is delayed.
+        process.kill(previous.pid, 'SIGSTOP')
+        const resume = setTimeout(() => {
+          try {
+            process.kill(previous.pid, 'SIGCONT')
+          } catch {}
+        }, 1500)
+        try {
+          await writeFile(mainPath, mainSource(version))
+          await expect.poll(() => starts().at(-1)?.version, { timeout: 15_000 }).toBe(version)
+        } finally {
+          clearTimeout(resume)
+          try {
+            process.kill(previous.pid, 'SIGCONT')
+          } catch {}
+        }
+      } else await writeFile(mainPath, mainSource(version))
       await expect.poll(() => starts().at(-1)?.version, { timeout: 15_000 }).toBe(version)
       page = await attach(after)
       expect(starts().at(-1)?.pid).not.toBe(previous.pid)
@@ -210,7 +244,7 @@ contextBridge.exposeInMainWorld('__duckitDevelopmentTest', { version: ${version}
       clearTimeout(stop)
       clearTimeout(force)
     }
-    await testInfo.attach('development.log', { body: output, contentType: 'text/plain' })
+    await testInfo.attach('development.log', { path: logPath, contentType: 'text/plain' })
     await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })
