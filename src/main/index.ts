@@ -153,6 +153,19 @@ app.whenReady().then(async () => {
   })
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event) => event.preventDefault())
+  const trusted = new URL(rendererURL)
+  const isRendererDocument = (url: string) => {
+    try {
+      const sender = new URL(url)
+      return (
+        sender.protocol === trusted.protocol &&
+        sender.host === trusted.host &&
+        sender.pathname === trusted.pathname
+      )
+    } catch {
+      return false
+    }
+  }
   const handle = <T>(
     name: string,
     validator: z.ZodType<T>,
@@ -162,7 +175,7 @@ app.whenReady().then(async () => {
       if (
         event.sender !== window?.webContents ||
         event.senderFrame !== event.sender.mainFrame ||
-        event.senderFrame.url !== new URL(rendererURL).href
+        !isRendererDocument(event.senderFrame.url)
       )
         return { ok: false, code: 'invalid', message: 'Untrusted application request' }
       try {
