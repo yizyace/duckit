@@ -36,7 +36,8 @@ test('previews, cancels, matches and retries a statement without losing legitima
     await page.getByRole('button', { name: 'Import statement', exact: true }).click()
     await page.getByRole('radio', { name: /Match 2026-09-03/ }).check()
     await page.getByRole('button', { name: 'Import approved transactions' }).click()
-    await expect(page.getByRole('dialog')).toHaveCount(0)
+    // Activation saves, checkpoints, and verifies an after-import backup before closing.
+    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 30000 })
     const imported = await state(),
       grocery = imported.budget!.transactions.find((t) => t.id === 'groceries')!
     expect(grocery.bankId).toBe('bank-groceries')
@@ -47,7 +48,7 @@ test('previews, cancels, matches and retries a statement without losing legitima
     await page.getByLabel('Account filter').selectOption('checking')
     await page.getByRole('button', { name: 'Import statement', exact: true }).click()
     await page.getByRole('button', { name: 'Import approved transactions' }).click()
-    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 30000 })
     expect((await state()).budget!.revision).toBe(imported.budget!.revision)
     await page.getByRole('button', { name: 'Undo last change' }).click()
     await expect.poll(async () => (await state()).budget!.transactions.length).toBe(2)
