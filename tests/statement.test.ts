@@ -307,6 +307,8 @@ describe('statement preview and approval', () => {
     const row = candidate.rows[1]!
     expect(row.duplicateReason).toContain('repeats an earlier bank ID')
     expect(row.matches).toEqual([])
+    // The repeat flag is an apply-time detail and must not cross IPC undeclared.
+    expect(Object.keys(candidate.preview.rows![1]!)).not.toContain('repeatsBankId')
     expect(candidate.preview.warnings.join()).toContain(
       '1 row repeats an earlier bank ID with identical details: row 2 (2026-09-04 Shop & Co -12.34).',
     )
