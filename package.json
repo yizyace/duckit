@@ -10,9 +10,13 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "electron:install": "install-electron",
+    "predev": "npm run electron:install",
     "dev": "electron-vite dev --watch",
+    "predemo": "npm run electron:install",
     "demo": "DUCKIT_DEMO=1 electron-vite dev --watch",
     "build": "electron-vite build",
+    "prestart": "npm run electron:install",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
