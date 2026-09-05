@@ -120,10 +120,8 @@ app.whenReady().then(async () => {
   )
   session.defaultSession.setPermissionCheckHandler(() => false)
   const entry = join(__dirname, '../renderer/index.html')
-  const rendererURL =
-    !app.isPackaged && process.env.ELECTRON_RENDERER_URL
-      ? process.env.ELECTRON_RENDERER_URL
-      : pathToFileURL(entry).href
+  const developmentRenderer = !app.isPackaged && process.env.ELECTRON_RENDERER_URL
+  const rendererURL = developmentRenderer || pathToFileURL(entry).href
   const runtimeDirectory = app.isPackaged
     ? join(process.resourcesPath, 'runtime')
     : join(app.getAppPath(), 'resources/runtime', process.arch)
@@ -152,7 +150,6 @@ app.whenReady().then(async () => {
     },
   })
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  window.webContents.on('will-navigate', (event) => event.preventDefault())
   const trusted = new URL(rendererURL)
   const isRendererDocument = (url: string) => {
     try {
@@ -166,6 +163,10 @@ app.whenReady().then(async () => {
       return false
     }
   }
+  window.webContents.on('will-navigate', (event) => {
+    // Vite reloads this document after a preload build; other navigation stays denied.
+    if (!developmentRenderer || !isRendererDocument(event.url)) event.preventDefault()
+  })
   const handle = <T>(
     name: string,
     validator: z.ZodType<T>,
