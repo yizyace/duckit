@@ -65,8 +65,12 @@ test('contains budget labels while keeping the narrow grid keyboard-scrollable',
       window.show()
       window.focus()
     })
-    await grid.focus()
     await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true)
+    // Enter through the real tab order after native activation. Document focus
+    // alone does not establish which element will receive the arrow key.
+    await page.getByRole('button', { name: 'Category', exact: true }).focus()
+    await page.keyboard.press('Tab')
+    await expect(grid).toBeFocused()
     await page.keyboard.press('ArrowRight')
     await expect.poll(() => grid.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
     await expect(grid).toBeFocused()
