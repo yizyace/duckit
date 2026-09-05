@@ -6,6 +6,7 @@ resources/runtime/
 test-results/
 playwright-report/
 coverage/
+reports/
 .DS_Store
 .env*
 *.ynab4

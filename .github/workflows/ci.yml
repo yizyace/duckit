@@ -1,17 +1,102 @@
 name: CI
-on: [push, pull_request]
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+  schedule:
+    - cron: '23 9 * * 1'
+
 permissions:
   contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/') }}
+
 jobs:
-  synthetic:
-    runs-on: macos-latest
+  quality:
+    name: Formatting, types and workflows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - run: node scripts/runtime-fetch.ts "$(node -p process.arch)"
-      - run: npm run check
-      - run: npm run test:e2e
+      - run: npm run format:check
+      - run: npm run typecheck
+      - name: Validate GitHub Actions workflows
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/actionlint.tar.gz" \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          printf '%s  %s\n' 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 "$RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+
+  desktop:
+    name: Desktop (${{ matrix.arch }})
+    needs: quality
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Verify native runner architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: node -e "require('node:assert/strict').equal(process.arch, process.env.EXPECTED_ARCH)"
+      - run: npm ci
+      - name: Verify bundled runtime downloads
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: node scripts/runtime-fetch.ts "$TARGET_ARCH"
+      - name: Unit and integration tests
+        run: npm test -- --reporter=default --reporter=junit --outputFile.junit=reports/unit.xml
+      - name: Build production application
+        run: npm run build
+      - name: Electron interaction and accessibility tests
+        run: npx --no-install playwright test
+      - name: Save synthetic test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-reports-${{ matrix.arch }}
+          path: |
+            reports/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 7
+
+  passed:
+    name: CI passed
+    if: ${{ always() }}
+    needs: [quality, desktop]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require all checks
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          DESKTOP_RESULT: ${{ needs.desktop.result }}
+        run: test "$QUALITY_RESULT" = success && test "$DESKTOP_RESULT" = success
