@@ -123,6 +123,7 @@ describe('synchronization process boundaries', () => {
 
   it('cancels a transport process and its helper process before shutdown', async () => {
     const root = await mkdtemp(join(tmpdir(), 'duckit-sync-cancel-'))
+    let child = 0
     const io = new SyncIO({
       directory: resolve('resources/runtime', process.arch),
       stateRoot: root,
@@ -140,7 +141,6 @@ describe('synchronization process boundaries', () => {
       )
       // Observe rejection immediately so cancellation never creates an unhandled promise.
       const finished = running.catch((error: unknown) => error)
-      let child = 0
       for (let attempt = 0; attempt < 100; attempt++) {
         try {
           child = Number(JSON.parse(await readFile(pidFile, 'utf8')).child)
@@ -153,16 +153,29 @@ describe('synchronization process boundaries', () => {
       expect(child).toBeGreaterThan(0)
       io.cancel()
       expect(await finished).toBeInstanceOf(Error)
-      const state = await promisify(execFile)('/bin/ps', ['-p', String(child), '-o', 'stat=']).then(
-        (result) => result.stdout.trim(),
-        () => '',
-      )
-      expect(state === '' || state.startsWith('Z')).toBe(true)
+      // The leader's close event does not wait for the OS to finish terminating
+      // every helper that received the process-group signal. Keep a bounded
+      // orphan check and report the observed state if a helper remains alive.
+      await expect
+        .poll(
+          () =>
+            promisify(execFile)('/bin/ps', ['-p', String(child), '-o', 'stat=']).then(
+              (result) => result.stdout.trim(),
+              () => '',
+            ),
+          { timeout: 2000, interval: 10 },
+        )
+        .toMatch(/^(?:Z.*)?$/)
       await expect(io.run(process.execPath, ['-e', 'process.exit(0)'], root)).rejects.toThrow(
         'cancelled',
       )
     } finally {
       io.cancel()
+      // Also clean up the fixture when the orphan assertion fails.
+      if (child)
+        try {
+          process.kill(child, 'SIGKILL')
+        } catch {}
       await rm(root, { recursive: true, force: true })
     }
   })
