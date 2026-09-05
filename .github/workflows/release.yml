@@ -1,0 +1,76 @@
+name: Draft release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Match package version and main history
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node -e "require('node:assert/strict').equal(process.env.RELEASE_TAG, 'v' + require('./package.json').version)"
+          git merge-base --is-ancestor HEAD origin/main
+
+  verify:
+    name: Verify release
+    needs: version
+    uses: ./.github/workflows/ci.yml
+    with:
+      package: true
+
+  draft:
+    name: Create draft with verified installers
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: installers-*
+          path: artifacts
+          merge-multiple: true
+      - name: Verify downloaded assets and create draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        working-directory: artifacts
+        run: |
+          sha256sum --check SHA256SUMS-arm64
+          sha256sum --check SHA256SUMS-x64
+          cat SHA256SUMS-arm64 SHA256SUMS-x64 > SHA256SUMS
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          Verified unsigned macOS installers for Apple Silicon (arm64) and Intel (x64).
+          Both builds passed native tests, packaged launch, exact save, backup, reopen and restore checks.
+
+          Choose the installer matching your Mac. These builds are not notarized.
+          Follow docs/install.md for installation and first-launch instructions.
+          Application updates remain manual; budgets and backups live separately from the app.
+          NOTES
+          gh release create "$RELEASE_TAG" \
+            "Duckit-${RELEASE_TAG#v}-arm64.dmg" "Duckit-${RELEASE_TAG#v}-arm64.zip" \
+            "Duckit-${RELEASE_TAG#v}-x64.dmg" "Duckit-${RELEASE_TAG#v}-x64.zip" \
+            SHA256SUMS build-arm64.json build-x64.json \
+            qa/package-smoke-arm64.json qa/package-smoke-x64.json \
+            --draft --verify-tag --target "$SOURCE_SHA" --title "Duckit $RELEASE_TAG" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"

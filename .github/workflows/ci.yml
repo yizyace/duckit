@@ -4,7 +4,16 @@ on:
     branches: ['**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      package:
+        description: Build and verify downloadable Mac installers
+        type: boolean
+        default: false
   workflow_call:
+    inputs:
+      package:
+        type: boolean
+        default: false
   schedule:
     - cron: '23 9 * * 1'
 
@@ -86,6 +95,25 @@ jobs:
             playwright-report/
             test-results/
           if-no-files-found: warn
+          retention-days: 7
+      - name: Build and verify native installers
+        if: ${{ inputs.package }}
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: node scripts/ci-package.ts "$TARGET_ARCH"
+      - name: Save verified installers
+        if: ${{ inputs.package }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: installers-${{ matrix.arch }}
+          path: |
+            release/Duckit-*-${{ matrix.arch }}.dmg
+            release/Duckit-*-${{ matrix.arch }}.zip
+            release/SHA256SUMS-${{ matrix.arch }}
+            release/build-${{ matrix.arch }}.json
+            release/qa/package-smoke-${{ matrix.arch }}.json
+          compression-level: 0
+          if-no-files-found: error
           retention-days: 7
 
   passed:
