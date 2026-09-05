@@ -1,0 +1,257 @@
+.register-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.register-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+}
+.register-filter label {
+  margin: 0;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.register-filter > span {
+  flex: 1;
+}
+.register-segments {
+  display: flex;
+  gap: 3px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 3px;
+  background: var(--card);
+}
+.register-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.register-search > svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+.register-search input {
+  max-width: 540px;
+}
+.register-count {
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.register-scroll {
+  max-width: 100%;
+  overflow: auto;
+  max-height: 520px;
+  scrollbar-width: thin;
+}
+.register-scroll:focus-visible {
+  outline-offset: -3px;
+}
+.register-table {
+  table-layout: fixed;
+  min-width: 820px;
+}
+.register-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.register-table th:first-child {
+  width: 44px;
+}
+.register-table th:nth-child(2) {
+  width: 108px;
+}
+.register-table th:nth-child(3) {
+  width: 25%;
+}
+.register-table th:nth-child(6) {
+  width: 155px;
+}
+.register-table th:nth-child(7) {
+  width: 118px;
+}
+.register-table td {
+  height: 58px;
+  overflow-wrap: anywhere;
+}
+.register-table th,
+.register-table td {
+  padding: 11px 13px;
+}
+.register-table tr[data-selected] {
+  background: var(--secondary);
+}
+.register-table th button {
+  min-height: 24px;
+  text-align: inherit;
+}
+.register-edit-link {
+  display: block;
+  min-height: 30px;
+  max-width: 100%;
+  text-align: left;
+  color: var(--foreground);
+}
+.register-edit-link:hover > span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.register-edit-link small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.register-cleared {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: capitalize;
+  font-size: 11px;
+}
+.register-cleared svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.register-selection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--secondary);
+  border-bottom: 1px solid var(--border);
+}
+.register-selection > span {
+  margin-right: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.register-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 15px;
+}
+.register-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 24px;
+  font-size: 13px;
+}
+.register-error {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--destructive-soft);
+  color: var(--destructive);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.register-caution {
+  margin: 10px 0;
+  padding: 11px 13px;
+  border-radius: 8px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.transaction-dialog {
+  width: min(690px, calc(100vw - 48px));
+}
+.split-editor {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 15px;
+}
+.split-editor legend {
+  padding: 0 5px;
+  font-weight: 600;
+  font-size: 12px;
+}
+.revision-review {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  border: 1px solid var(--input);
+  border-radius: 9px;
+  padding: 16px;
+  background: var(--muted);
+}
+.revision-review h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.revision-review p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.revision-review button {
+  white-space: normal;
+  min-height: 40px;
+  height: auto;
+}
+.review-transactions {
+  display: grid;
+  gap: 6px;
+  max-height: 200px;
+  overflow: auto;
+  margin: 15px 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.reconcile-totals {
+  display: grid;
+  gap: 13px;
+  padding: 15px;
+  border-radius: 8px;
+  background: var(--muted);
+}
+.reconcile-totals > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.reconcile-totals dd {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 720px) {
+  .register-form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .register-search {
+    flex-wrap: wrap;
+  }
+  .register-count {
+    margin-left: 0;
+  }
+  .register-toolbar > .toolbar {
+    flex-wrap: wrap;
+  }
+  .register-filter {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
