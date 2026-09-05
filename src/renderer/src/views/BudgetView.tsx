@@ -231,9 +231,11 @@ export function BudgetView({ budget, onCommand }: Props) {
                               <td key={m.month + 'b'} className="money">
                                 <button
                                   className="budget-amount"
-                                  aria-label={`Budget ${c.name} ${m.month}`}
                                   onClick={() => setEdit({ allocation, revision: budget.revision })}
                                 >
+                                  <span className="sr-only">
+                                    Budget {c.name}, {monthLabel(m.month)}:{' '}
+                                  </span>
                                   {money(cell.budgeted, budget.currency)}
                                 </button>
                               </td>,
