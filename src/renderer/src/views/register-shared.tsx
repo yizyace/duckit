@@ -1,19 +1,15 @@
 import { useState, type ReactNode } from 'react'
 import type { Budget, Change, Split, Transaction } from '../../../shared/contracts'
-import { addMonths, applyChanges, formatMoney } from '../../../engine'
+import { addMonths, applyChanges } from '../../../engine'
 import { transferLegs } from '../../../engine/transfers'
 import { Button } from '@/components/ui/button'
+export { money } from './register-model'
 
 export type CommandHandler = (changes: Change[], expectedRevision: number) => Promise<void>
 
 export function today(): string {
   const date = new Date()
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-export function money(amount: string | bigint, currency: string): string {
-  const [whole, fraction] = formatMoney(amount).split('.')
-  return `${currency} ${whole!.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${fraction}`
 }
 
 export function assignmentOf(split: Split, date: string): string {
