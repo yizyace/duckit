@@ -27,7 +27,10 @@ test('creates an offline budget and completes pending local writes before clean 
     await page.getByLabel('Budget name', { exact: true }).fill('Synthetic offline budget')
     await page.getByLabel('Currency', { exact: true }).fill('EUR')
     await page.getByRole('button', { name: 'Create a budget', exact: true }).click()
-    await expect.poll(async () => (await state(page)).budget?.name).toBe('Synthetic offline budget')
+    // Creation includes candidate validation and a verified native Dolt backup.
+    await expect
+      .poll(async () => (await state(page)).budget?.name, { timeout: 30000 })
+      .toBe('Synthetic offline budget')
     expect((await state(page)).status.remote).toBe('disconnected')
     expect((await state(page)).budget?.currency).toBe('EUR')
     await page.evaluate(async () => {
@@ -180,7 +183,8 @@ test('exports, cancels import, restores a verified backup and activates a curren
       .first()
       .click()
     await page.getByRole('button', { name: 'Restore verified backup', exact: true }).click()
-    await expect(page.getByRole('dialog')).toHaveCount(0)
+    // Restore verifies a safety backup and validates a separate candidate before switching.
+    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 30000 })
     await expect(
       page.getByRole('status').filter({ hasText: 'Backup restored and validated.' }),
     ).toBeVisible()
@@ -190,7 +194,8 @@ test('exports, cancels import, restores a verified backup and activates a curren
     await page.getByRole('button', { name: 'Import Duckit archive', exact: true }).click()
     await page.getByLabel('Currency', { exact: true }).fill('EUR')
     await page.getByRole('button', { name: 'Activate imported budget', exact: true }).click()
-    await expect(page.getByRole('dialog')).toHaveCount(0)
+    // Activation validates a candidate and verifies backups before and after switching.
+    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 30000 })
     const imported = await state(page)
     expect(imported.budget?.currency).toBe('EUR')
     expect(imported.budget?.transactions).toEqual(original.transactions)
