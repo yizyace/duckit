@@ -16,13 +16,25 @@ The workflow asserts Node's architecture rather than relying on the label alone.
 [GitHub runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
 Steps within each desktop job run sequentially and Playwright uses one worker.
 Vitest can run independent test files in parallel.
-The matrix continues on the other architecture after a failure. New commits cancel
-obsolete branch/PR runs; version-tag release runs are not cancelled automatically.
+The matrix continues on the other architecture after a failure. Concurrency groups
+include the triggering event: new commits cancel obsolete push or PR runs, while
+manual installer runs and scheduled checks run independently from push checks.
+Version-tag release runs are not cancelled automatically.
+
+Each desktop job installs the pinned Electron binary before running tests. Only
+this setup step retries, at most three attempts within five minutes, so a transient
+download failure does not become a UI test failure. Persistent installation errors
+fail the job before tests begin. Electron verifies downloads using the checksums
+bundled with its pinned npm package; application tests still run without retries.
 
 The stable `CI passed` job can be selected as a required check in repository branch
 rules. The workflows do not change branch protection or merge policy.
 
 ## Reports and failures
+
+When reporting `main` health, verify the push-triggered run for its current commit
+and inspect that commit's check runs. Record the commit, event and run URL. A
+successful manual installer run does not clear a failed or cancelled push check.
 
 Each desktop job retains synthetic JUnit, Playwright HTML and test-output files for
 seven days as `test-reports-arm64` or `test-reports-x64`, including when tests fail.
