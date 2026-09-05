@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { basename } from 'node:path'
-import { assertValidBudget } from '../../engine'
+import { assertValidBudget, formatMoney } from '../../engine'
 import {
   budgetSchema,
   type Budget,
@@ -46,6 +46,13 @@ function freeze<T>(value: T): T {
   }
   return value
 }
+/** Name an offending row so a preview warning is actionable without opening the file. */
+const describeRow = (row: StatementRow, index: number) =>
+  `row ${index + 1} (${row.date} ${row.payee || 'no payee'} ${formatMoney(row.amount)})`
+function rowList(entries: string[]): string {
+  const shown = entries.slice(0, 5).join('; ')
+  return entries.length > 5 ? `${shown}; and ${entries.length - 5} more` : shown
+}
 function ordinal(date: string): number {
   // These UTC epochs are only comparison ordinals; imported calendar strings stay unchanged.
   return Date.parse(`${date}T00:00:00Z`) / 86400000
@@ -84,6 +91,7 @@ export function previewStatement(
       bankIds.set(row.bankId, row)
     }
   const seenBankIds = new Map<string, StatementRow>()
+  const repeatedInStatement: string[] = []
   const payees = new Map(budget.payees.map((row) => [row.id, row.name]))
   const warnings = [...parsed.warnings]
   const errors: string[] = []
@@ -104,6 +112,7 @@ export function previewStatement(
       errors.push(`Statement row ${index + 1} repeats a bank ID with conflicting fields`)
     // An identical repeat of an in-statement ID is usually a genuine second purchase, so ask.
     const repeatsBankId = Boolean(repeated) && !conflicting && !imported && !duplicate
+    if (repeatsBankId) repeatedInStatement.push(describeRow(row, index))
     const disposition = repeatsBankId
       ? 'uncertain'
       : imported || duplicate || repeated
@@ -166,10 +175,10 @@ export function previewStatement(
     warnings.push(
       'Some rows have no bank ID. Exact-file repeats are skipped; overlapping files require review and may contain legitimate repeated purchases.',
     )
-  const repeats = rows.filter((row) => row.repeatsBankId).length
+  const repeats = repeatedInStatement.length
   if (repeats)
     warnings.push(
-      `${repeats} ${repeats === 1 ? 'row repeats' : 'rows repeat'} an earlier bank ID with identical details. Bank IDs are not always unique; choose import separately for a genuine repeated purchase, or skip.`,
+      `${repeats} ${repeats === 1 ? 'row repeats' : 'rows repeat'} an earlier bank ID with identical details: ${rowList(repeatedInStatement)}. Bank IDs are not always unique; choose import separately for a genuine repeated purchase, or skip.`,
     )
   if (rows.some((row) => row.disposition === 'uncertain'))
     warnings.push(

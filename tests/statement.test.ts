@@ -307,7 +307,9 @@ describe('statement preview and approval', () => {
     const row = candidate.rows[1]!
     expect(row.duplicateReason).toContain('repeats an earlier bank ID')
     expect(row.matches).toEqual([])
-    expect(candidate.preview.warnings.join()).toContain('1 row repeats an earlier bank ID')
+    expect(candidate.preview.warnings.join()).toContain(
+      '1 row repeats an earlier bank ID with identical details: row 2 (2026-09-04 Shop & Co -12.34).',
+    )
     expect(() => applyStatement(candidate, budget, [])).toThrow('exactly one')
     const both = applyStatement(candidate, budget, [row.id])
     expect(both.transactions).toHaveLength(2)
