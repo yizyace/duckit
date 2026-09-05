@@ -63,7 +63,13 @@ export function App() {
   const importBudget = (kind: 'ynab4' | 'duckit' | 'statement', accountId?: string) =>
     void run(async () => {
       const revision = state.data?.budget?.revision ?? null
-      const value = unwrap(await window.duckit.previewImport({ kind, accountId, currency: 'USD' }))
+      const value = unwrap(
+        await window.duckit.previewImport({
+          kind,
+          ...(accountId ? { accountId } : {}),
+          currency: 'USD',
+        }),
+      )
       if (value) setPreview({ value, revision })
     })
   useEffect(() => {

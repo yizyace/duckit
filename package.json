@@ -18,7 +18,7 @@
     "build": "electron-vite build",
     "prestart": "npm run electron:install",
     "start": "electron-vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
