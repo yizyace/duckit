@@ -53,7 +53,8 @@ const aliases = {
   amount: ['amount', 'transactionamount'],
   debit: ['debit', 'debits', 'withdrawal', 'withdrawals', 'outflow'],
   credit: ['credit', 'credits', 'deposit', 'deposits', 'inflow'],
-  bankId: ['fitid', 'transactionid', 'bankid', 'reference', 'referencenumber'],
+  // Only columns that banks guarantee unique per transaction; Reference is often a batch code.
+  bankId: ['fitid', 'transactionid', 'bankid'],
 } as const
 type Columns = Partial<Record<keyof typeof aliases, number>>
 function columns(row: string[]): Columns | null {

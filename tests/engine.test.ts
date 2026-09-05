@@ -470,6 +470,76 @@ describe('atomic domain mutations', () => {
     expect(validateBudget(data).join()).toContain('after its statement date')
   })
 
+  it('validates many months of reconciliation records within a bounded multiple of no-reconciliation time', () => {
+    // Guards against reintroducing a per-id linear scan of transactions/accounts:
+    // this fixture mirrors the audit repro (96 months, 100 tx/month, reconciliations
+    // that each list every cleared transaction to date). Comparing against a
+    // same-run, same-machine baseline (instead of an absolute bound) keeps this
+    // deterministic under CI/CPU contention: before the Map-based lookups, validating
+    // it took ~240x as long as the same budget with no reconciliation records; after,
+    // ~4x. An untimed warm-up plus taking the minimum of three timed runs per side
+    // damps scheduler/GC jitter on the small no-reconciliation sample, and the
+    // assertion's additive slack covers what jitter remains — a genuine quadratic
+    // regression is 50-200x and still fails either way. A zero-errors assertion
+    // alone would not catch that regression, so this asserts the timing ratio too.
+    const data = budget()
+    const months = 96
+    const perMonth = 100
+    let month = '2024-01'
+    for (let m = 0; m < months; m++) {
+      const paycheck = income(`inc-${m}`, '500000', `${month}-01`, month)
+      paycheck.cleared = 'cleared'
+      data.transactions.push(paycheck)
+      for (let i = 0; i < perMonth; i++) {
+        const day = String(1 + (i % 28)).padStart(2, '0')
+        data.transactions.push(
+          transaction(
+            `t-${m}-${i}`,
+            String(-(100 + i)),
+            i % 2 ? 'food' : 'travel',
+            `${month}-${day}`,
+            { cleared: 'cleared' },
+          ),
+        )
+      }
+      month = addMonths(month, 1)
+    }
+    month = '2024-01'
+    for (let m = 0; m < months; m++) {
+      const date = `${month}-28`
+      data.reconciliations.push({
+        id: `rec-${m}`,
+        accountId: 'checking',
+        date,
+        balance: '0',
+        transactionIds: data.transactions
+          .filter((row) => row.accountId === 'checking' && row.date <= date)
+          .map((row) => row.id),
+      })
+      month = addMonths(month, 1)
+    }
+    const withoutReconciliations = structuredClone(data)
+    withoutReconciliations.reconciliations = []
+    validateBudget(withoutReconciliations) // untimed warm-up
+
+    const timeValidate = (input: Budget): { ms: number; errors: string[] } => {
+      let ms = Infinity
+      let errors: string[] = []
+      for (let i = 0; i < 3; i++) {
+        const start = performance.now()
+        errors = validateBudget(input)
+        ms = Math.min(ms, performance.now() - start)
+      }
+      return { ms, errors }
+    }
+    const withRecs = timeValidate(data)
+    const withoutRecs = timeValidate(withoutReconciliations)
+
+    expect(withRecs.errors).toEqual([])
+    expect(withoutRecs.errors).toEqual([])
+    expect(withRecs.ms).toBeLessThan(10 * withoutRecs.ms + 100)
+  })
+
   it('posts monthly schedules once, preserves the day anchor, and shifts deferred income', () => {
     const data = budget()
     const schedule: Schedule = {

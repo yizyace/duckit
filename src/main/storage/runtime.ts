@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { join, delimiter } from 'node:path'
 import { mkdir, access } from 'node:fs/promises'
 
-export type Runtime = { directory: string; stateRoot: string; signal?: AbortSignal }
+export type Runtime = { directory: string; stateRoot: string; signal?: AbortSignal | undefined }
 export function environment(runtime: Runtime): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {}
   for (const key of ['HOME', 'USER', 'LOGNAME', 'TMPDIR', 'LANG', 'LC_ALL', 'SSH_AUTH_SOCK']) {

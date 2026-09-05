@@ -73,7 +73,7 @@ export function ScheduleView({
   onCommand,
 }: {
   budget: Budget
-  accountId?: string
+  accountId?: string | undefined
   onCommand: CommandHandler
 }) {
   const [editing, setEditing] = useState<Schedule | 'new' | null>(null)

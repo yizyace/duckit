@@ -449,14 +449,18 @@ export class SyncManager {
     }
   }
   async sync(): Promise<void> {
-    const binding = await this.binding()
-    if (!binding) {
-      this.pending = null
-      this.publish('disconnected', 'GitHub is not connected for this budget')
-      return
-    }
-    this.publish('syncing', 'Checking private GitHub history')
+    // Resolving the binding reads machine-local files and the active database; a failure
+    // there must still reach the status publish and the candidate cleanup below.
     try {
+      const binding = await this.binding()
+      if (!binding) {
+        // A pending conflict always retains its candidate as retainedReview, so clearing
+        // pending here cannot let cleanup() delete a reviewed history.
+        this.pending = null
+        this.publish('disconnected', 'GitHub is not connected for this budget')
+        return
+      }
+      this.publish('syncing', 'Checking private GitHub history')
       const token = await this.credential()
       await this.inspect(binding.repository, token, binding.repositoryId)
       await this.synchronize(binding, token, await this.remoteGitHash(binding, token))

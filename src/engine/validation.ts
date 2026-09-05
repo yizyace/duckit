@@ -1,4 +1,4 @@
-import { budgetSchema, type Budget, type Transaction } from '../shared/contracts'
+import { budgetSchema, type Account, type Budget, type Transaction } from '../shared/contracts'
 import { addMonths } from './calendar'
 import { transferLegs, type TransferLeg } from './transfers'
 
@@ -21,6 +21,10 @@ export function validateBudget(input: unknown): string[] {
   if (new Set((budget.months ?? []).map((m) => m.month)).size !== (budget.months ?? []).length)
     errors.push('Duplicate budget calendar month')
   const accounts = ids(budget.accounts, 'account')
+  // First-wins on a duplicate id, matching the .find() semantics this replaces.
+  const accountsById = new Map<string, Account>()
+  for (const account of budget.accounts)
+    if (!accountsById.has(account.id)) accountsById.set(account.id, account)
   const groups = ids(budget.groups, 'group')
   const categories = ids(budget.categories, 'category')
   const payees = ids(budget.payees, 'payee')
@@ -87,7 +91,7 @@ export function validateBudget(input: unknown): string[] {
           errors.push(`Split ${split.id} income must belong to the current or next month`)
       }
       if (
-        !budget.accounts.find((account) => account.id === transaction.accountId)?.onBudget &&
+        !accountsById.get(transaction.accountId)?.onBudget &&
         (split.categoryId || split.incomeMonth)
       )
         errors.push(`Off-budget split ${split.id} cannot affect categories or budget income`)
@@ -109,8 +113,7 @@ export function validateBudget(input: unknown): string[] {
       if (left.transaction.date !== right.transaction.date)
         errors.push(`${label} transfer ${id} dates must agree`)
       const budgetSides = pair.filter(
-        (leg) =>
-          budget.accounts.find((account) => account.id === leg.transaction.accountId)?.onBudget,
+        (leg) => accountsById.get(leg.transaction.accountId)?.onBudget,
       )
       if (
         budgetSides.length === 2 &&
@@ -171,6 +174,10 @@ export function validateBudget(input: unknown): string[] {
   const deletedTransactions = new Set(
     budget.tombstones.filter((row) => row.kind === 'transaction').map((row) => row.id),
   )
+  // First-wins on a duplicate id, matching the .find() semantics this replaces.
+  const transactionsById = new Map<string, Transaction>()
+  for (const transaction of budget.transactions)
+    if (!transactionsById.has(transaction.id)) transactionsById.set(transaction.id, transaction)
   for (const reconciliation of budget.reconciliations) {
     if (!accounts.has(reconciliation.accountId))
       errors.push(`Reconciliation ${reconciliation.id} refers to a missing account`)
@@ -179,7 +186,7 @@ export function validateBudget(input: unknown): string[] {
     for (const id of reconciliation.transactionIds) {
       if (!transactions.has(id) && !deletedTransactions.has(id))
         errors.push(`Reconciliation ${reconciliation.id} refers to a missing transaction`)
-      const transaction = budget.transactions.find((row) => row.id === id)
+      const transaction = transactionsById.get(id)
       if (transaction && transaction.accountId !== reconciliation.accountId)
         errors.push(
           `Reconciliation ${reconciliation.id} includes a transaction from another account`,

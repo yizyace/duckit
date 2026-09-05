@@ -61,3 +61,30 @@ test('refuses to navigate before a budget exists', async () => {
     await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })
+
+test('trusts operations across the content fragment but not another document', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'duckit-e2e-'))
+  const app = await electron.launch({
+    args: ['.', `--user-data-dir=${root}`],
+    env: { ...process.env, DUCKIT_TEST_ROOT: root, DUCKIT_DEMO: '1' },
+  })
+  const frameURL = () =>
+    app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.mainFrame.url)
+  try {
+    const page = await app.firstWindow()
+    await expect(page.getByRole('heading', { name: 'Budget', exact: true })).toBeVisible()
+    await page.getByRole('link', { name: 'Skip to budget content' }).press('Enter')
+    await expect(page.locator('#main-content')).toBeFocused()
+    await page.evaluate(() => {
+      location.hash = '#main-content'
+    })
+    await expect.poll(frameURL).toContain('/index.html#main-content')
+    expect((await page.evaluate(() => window.duckit.getState())).ok).toBe(true)
+    await page.evaluate(() => history.pushState({}, '', 'other.html'))
+    await expect.poll(frameURL).toContain('/other.html')
+    expect((await page.evaluate(() => window.duckit.getState())).ok).toBe(false)
+  } finally {
+    await app.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
