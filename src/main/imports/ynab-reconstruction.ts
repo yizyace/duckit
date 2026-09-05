@@ -99,6 +99,27 @@ function flatten(value: unknown): YnabEntity[] {
         (parent?.entityType === 'transaction' || parent?.entityType === 'scheduledTransaction')
       )
         entity.parentTransactionId = parent.entityId
+      // Preserve the order witness without retaining stale copies of child entities.
+      // Full snapshots expose ordered arrays (the published Classic importer maps
+      // them directly); ydiff arrays may contain changed children only.
+      if (
+        (entity.entityType === 'transaction' || entity.entityType === 'scheduledTransaction') &&
+        row.subTransactions != null
+      ) {
+        if (!Array.isArray(row.subTransactions))
+          throw new Error('Legacy subtransactions must be an array')
+        entity.subTransactions = row.subTransactions.map((value) => {
+          const child = record(value, 'Legacy subtransaction')
+          if (
+            child.entityType !== 'subTransaction' ||
+            (child.parentTransactionId != null && child.parentTransactionId !== entity!.entityId)
+          )
+            throw new Error('Legacy split array contains a child from another parent')
+          return string(child.entityId, 'Legacy split ID')
+        })
+        if (new Set(entity.subTransactions as string[]).size !== row.subTransactions.length)
+          throw new Error('Legacy split array repeats a child identity')
+      }
       for (const [key, child] of Object.entries(entity)) {
         if (
           Array.isArray(child) &&
@@ -112,6 +133,60 @@ function flatten(value: unknown): YnabEntity[] {
   }
   visit(value)
   return entities
+}
+
+/**
+ * Compatibility rule, not a claimed upstream ydiff specification: an array that
+ * covers every live child after the causal file is a complete order witness.
+ * Changed-only subsets and omitted arrays cannot move existing children. A new
+ * child with no complete witness has an unknown position. A later causal file
+ * may supply the witness; reject only if the final order remains ambiguous.
+ * Tombstones never imply positions, and a sole surviving child has one position.
+ */
+function resolveSplitOrders(
+  state: Map<string, YnabEntity>,
+  orders: Map<string, string[]>,
+  hints: YnabEntity[],
+  final = false,
+): void {
+  const children = new Map<string, Set<string>>()
+  for (const entity of state.values()) {
+    if (entity.entityType !== 'subTransaction' || entity.isTombstone === true) continue
+    const parent = string(entity.parentTransactionId, 'Split parent')
+    const ids = children.get(parent) ?? new Set<string>()
+    ids.add(entity.entityId)
+    children.set(parent, ids)
+  }
+  const witnesses = new Map<string, string[][]>()
+  for (const hint of hints) {
+    if (
+      (hint.entityType !== 'transaction' && hint.entityType !== 'scheduledTransaction') ||
+      !Array.isArray(hint.subTransactions)
+    )
+      continue
+    const rows = witnesses.get(hint.entityId) ?? []
+    rows.push(hint.subTransactions as string[])
+    witnesses.set(hint.entityId, rows)
+  }
+  for (const [key, parent] of state) {
+    if (
+      (parent.entityType !== 'transaction' && parent.entityType !== 'scheduledTransaction') ||
+      parent.isTombstone === true
+    )
+      continue
+    const live = children.get(parent.entityId) ?? new Set<string>()
+    let order = (orders.get(parent.entityId) ?? []).filter((id) => live.has(id))
+    for (const hint of witnesses.get(parent.entityId) ?? []) {
+      const surviving = hint.filter((id) => live.has(id))
+      if (surviving.length === live.size) order = surviving
+    }
+    if (live.size === 1) order = [...live]
+    if (final && order.length !== live.size)
+      throw new Error('Legacy split order is ambiguous: a new child needs a complete parent array')
+    orders.set(parent.entityId, order)
+    if (Object.hasOwn(parent, 'subTransactions') || order.length)
+      state.set(key, { ...parent, subTransactions: order })
+  }
 }
 
 type ZipEntry = {
@@ -277,6 +352,8 @@ export function reconstructRawYnab(bytes: Uint8Array): YnabReconstruction {
     if (state.has(key)) throw new Error('Full snapshot repeats an entity identity')
     state.set(key, entity)
   }
+  const splitOrders = new Map<string, string[]>()
+  resolveSplitOrders(state, splitOrders, full.entities)
   const current = { ...full.vector }
   const files = zip.entries
     .filter((entry) => entry.name.startsWith(prefix) && entry.name.endsWith('.ydiff'))
@@ -331,6 +408,7 @@ export function reconstructRawYnab(bytes: Uint8Array): YnabReconstruction {
       revision++
     )
       if (!changed.has(revision)) throw new Error('Incremental range omits an entity revision')
+    const orderHints: YnabEntity[] = []
     for (const entity of file.items.sort(
       (left, right) =>
         knowledge(left.entityVersion)[file.device]! - knowledge(right.entityVersion)[file.device]!,
@@ -351,12 +429,15 @@ export function reconstructRawYnab(bytes: Uint8Array): YnabReconstruction {
       )
         throw new Error('Concurrent entity revisions require explicit conflict resolution')
       state.set(key, entity)
+      orderHints.push(entity)
       current[file.device] = revision[file.device]!
     }
+    resolveSplitOrders(state, splitOrders, orderHints)
     for (const [device, revision] of Object.entries(file.end))
       current[device] = Math.max(current[device] ?? 0, revision)
     replayedPaths.push(file.entry.name)
   }
+  resolveSplitOrders(state, splitOrders, [], true)
   const folder = root.split('/').filter(Boolean).at(-1) ?? 'Imported budget'
   return {
     name: folder.replace(/(?:~[^~]*)?\.ynab4$/, ''),
