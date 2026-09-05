@@ -303,7 +303,19 @@ test('reviews complete conflict details and refreshes a stale choice without an 
     await page.keyboard.press('Tab')
     await expect(allocationRegion).toBeFocused()
     await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true)
+    // The first positive offset can be mid-animation. Wait for native scrolling
+    // to finish before reversing direction, so the two key gestures do not overlap.
+    await allocationRegion.evaluate((element) => {
+      element.addEventListener(
+        'scrollend',
+        () => element.setAttribute('data-scroll-ended', 'true'),
+        {
+          once: true,
+        },
+      )
+    })
     await page.keyboard.press('ArrowRight')
+    await expect(allocationRegion).toHaveAttribute('data-scroll-ended', 'true')
     await expect
       .poll(() => allocationRegion.evaluate((element) => element.scrollLeft))
       .toBeGreaterThan(0)

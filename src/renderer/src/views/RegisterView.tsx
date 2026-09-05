@@ -354,7 +354,7 @@ function Reconcile({
 
 export type RegisterViewProps = {
   budget: Budget
-  accountId?: string
+  accountId?: string | undefined
   onCommand: CommandHandler
   onImportStatement: (accountId: string) => void
 }

@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto'
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, symlink, writeFile, readFile, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import { zipSync } from 'fflate'
 import {
   readManifest,
   runtimeEnvironment,
@@ -12,6 +13,9 @@ import {
   machOArchitectures,
   verifyNativeTree,
   hostArchitecture,
+  extractRuntimeArchive,
+  overlayGcm,
+  overlayGitLfs,
 } from '../scripts/runtime.ts'
 
 function thinMachO(architecture: 'arm64' | 'x64', littleEndian = true): Buffer {
@@ -102,6 +106,116 @@ describe('pinned portable runtime', () => {
     expect(environment.PATH).not.toContain('/usr/local')
     expect(environment.DOLT_ROOT_PATH).toBe('/synthetic/state')
     expect(environment.GIT_CONFIG_GLOBAL).toBe('/dev/null')
+  })
+
+  it('requires checksums and HTTPS for the separately upgraded helpers', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'duckit-runtime-manifest-'))
+    try {
+      await mkdir(path.join(directory, 'resources'))
+      for (const component of ['gcm', 'gitLfs'] as const) {
+        const manifest = await readManifest()
+        manifest.platforms.arm64[component].sha256 = 'unverified'
+        await writeFile(
+          path.join(directory, 'resources/runtime-manifest.json'),
+          JSON.stringify(manifest),
+        )
+        await expect(readManifest(directory)).rejects.toThrow('pinned SHA-256 and HTTPS')
+        manifest.platforms.arm64[component].sha256 = 'a'.repeat(64)
+        manifest.platforms.arm64[component].url = 'http://example.invalid/runtime'
+        await writeFile(
+          path.join(directory, 'resources/runtime-manifest.json'),
+          JSON.stringify(manifest),
+        )
+        await expect(readManifest(directory)).rejects.toThrow('pinned SHA-256 and HTTPS')
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('extracts a ZIP in staging and rejects traversal before creating the target', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'duckit-runtime-zip-'))
+    try {
+      const archive = path.join(directory, 'lfs.zip')
+      await writeFile(archive, zipSync({ 'git-lfs-version/git-lfs': thinMachO('arm64') }))
+      await extractRuntimeArchive(archive, path.join(directory, 'valid'), 1)
+      expect(await readFile(path.join(directory, 'valid/git-lfs'))).toEqual(thinMachO('arm64'))
+      await writeFile(archive, zipSync({ '../escape': Buffer.from('untrusted') }))
+      await expect(extractRuntimeArchive(archive, path.join(directory, 'invalid'))).rejects.toThrow(
+        'Unsafe',
+      )
+      await expect(stat(path.join(directory, 'invalid'))).rejects.toMatchObject({ code: 'ENOENT' })
+      await expect(stat(path.join(directory, 'escape'))).rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('replaces the complete GCM payload without touching adjacent Git tools', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'duckit-runtime-overlay-'))
+    const source = path.join(directory, 'gcm'),
+      core = path.join(directory, 'git-core')
+    const files = [
+      'git-credential-manager',
+      'git-credential-manager.dll',
+      'git-credential-manager.deps.json',
+      'git-credential-manager.runtimeconfig.json',
+      'gcmcore.dll',
+      'libhostfxr.dylib',
+      'libhostpolicy.dylib',
+      'libcoreclr.dylib',
+      'NOTICE',
+      'fr/System.CommandLine.resources.dll',
+    ]
+    try {
+      for (const root of [source, core]) await mkdir(path.join(root, 'fr'), { recursive: true })
+      for (const file of files) {
+        await writeFile(path.join(source, file), `new ${file}`, { mode: 0o755 })
+        await writeFile(path.join(core, file), `old ${file}`, { mode: 0o755 })
+      }
+      await writeFile(path.join(core, 'git'), 'original Git', { mode: 0o755 })
+      await symlink('git', path.join(core, 'git-status'))
+      await writeFile(path.join(source, 'git'), 'unexpected Git replacement')
+      await expect(overlayGcm(source, core)).rejects.toThrow('Unexpected GCM payload path')
+      expect(await readFile(path.join(core, 'git-credential-manager'), 'utf8')).toContain('old')
+      await rm(path.join(source, 'git'))
+      await writeFile(path.join(core, 'obsolete.dll'), 'old runtime')
+      await expect(overlayGcm(source, core)).rejects.toThrow('inventory changed')
+      expect(await readFile(path.join(core, 'git-credential-manager'), 'utf8')).toContain('old')
+      await rm(path.join(core, 'obsolete.dll'))
+      await overlayGcm(source, core)
+      for (const file of files)
+        expect(await readFile(path.join(core, file), 'utf8')).toBe(`new ${file}`)
+      expect(await readFile(path.join(core, 'git-status'), 'utf8')).toBe('original Git')
+      expect((await stat(path.join(core, 'git'))).mode & 0o777).toBe(0o755)
+      await rm(path.join(source, 'libhostfxr.dylib'))
+      await expect(overlayGcm(source, core)).rejects.toThrow('Incomplete GCM payload')
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('replaces only the LFS executable and refuses a symlink destination', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'duckit-runtime-lfs-'))
+    const source = path.join(directory, 'lfs'),
+      core = path.join(directory, 'git-core')
+    try {
+      for (const root of [source, core]) await mkdir(root)
+      await writeFile(path.join(source, 'git-lfs'), 'new LFS', { mode: 0o755 })
+      await writeFile(path.join(source, 'install.sh'), 'do not execute')
+      await writeFile(path.join(core, 'git-lfs'), 'old LFS', { mode: 0o755 })
+      await writeFile(path.join(core, 'git'), 'original Git', { mode: 0o755 })
+      await overlayGitLfs(source, core)
+      expect(await readFile(path.join(core, 'git-lfs'), 'utf8')).toBe('new LFS')
+      expect((await stat(path.join(core, 'git-lfs'))).mode & 0o111).toBe(0o111)
+      await expect(stat(path.join(core, 'install.sh'))).rejects.toMatchObject({ code: 'ENOENT' })
+      await rm(path.join(core, 'git-lfs'))
+      await symlink('git', path.join(core, 'git-lfs'))
+      await expect(overlayGitLfs(source, core)).rejects.toThrow('regular source and destination')
+      expect(await readFile(path.join(core, 'git'), 'utf8')).toBe('original Git')
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 
   it('recognizes thin and universal Mach-O CPU declarations without executing code', () => {

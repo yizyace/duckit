@@ -8,6 +8,17 @@
 6. Every implementation slice needs independent review and recorded QA before closure.
 7. Commit atomic Conventional Commits; push only reviewed, passing batches.
 
+Electron downloads its executable on first use. `npm run dev`, `npm run demo`, and
+`npm start` first run the package's local `install-electron` command, which downloads
+the pinned binary when missing and reuses an existing installation without network
+access. Run `npm run electron:install` explicitly before invoking electron-vite
+directly. The initial download needs network access or a populated Electron cache.
+
+Renderer edits use Fast Refresh and main-process edits restart Electron with
+`--watch`. Preload edits rebuild successfully, but the existing navigation guard
+can block the automatic renderer reload; manually reload the window to use the new
+preload output.
+
 Use [agent work](agent-work.md) for module ownership, bounded delegation, useful
 commands and evidence handoff. It points to the maintained source for each concern;
 carry task-specific progress in the current handoff rather than copying it into

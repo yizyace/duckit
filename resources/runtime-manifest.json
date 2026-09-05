@@ -1,32 +1,50 @@
 {
   "schemaVersion": 1,
-  "doltVersion": "2.1.0",
+  "doltVersion": "2.3.2",
   "gitVersion": "2.53.0",
-  "gcmVersion": "2.9.0",
-  "gitLfsVersion": "3.7.1",
+  "gcmVersion": "2.9.1",
+  "gitLfsVersion": "3.8.0",
   "platforms": {
     "arm64": {
       "dolt": {
-        "url": "https://github.com/dolthub/dolt/releases/download/v2.1.0/dolt-darwin-arm64.tar.gz",
-        "sha256": "aef502bb5ee277da60e1bc387e7c0989cbc57ac46c8f36645e8225c408408921",
+        "url": "https://github.com/dolthub/dolt/releases/download/v2.3.2/dolt-darwin-arm64.tar.gz",
+        "sha256": "b576072541393579980161e86ac8ff83a447eb3eb47a17d92968bf72be098cad",
         "stripComponents": 1
       },
       "git": {
         "url": "https://github.com/desktop/dugite-native/releases/download/v2.53.0-4/dugite-native-v2.53.0-4098283-macOS-arm64.tar.gz",
         "sha256": "f9dc64635a5b62fbd7ad95db73268bbb8912255ac516d65d37bf7af22fcb8ffe",
         "stripComponents": 0
+      },
+      "gcm": {
+        "url": "https://github.com/git-ecosystem/git-credential-manager/releases/download/v2.9.1/gcm-osx-arm64-2.9.1.tar.gz",
+        "sha256": "2ac8f99258d04acb45cf592eb5b06ec0e0760c329bce40a4d18dabb5e0e37f68"
+      },
+      "gitLfs": {
+        "url": "https://github.com/git-lfs/git-lfs/releases/download/v3.8.0/git-lfs-darwin-arm64-v3.8.0.zip",
+        "sha256": "caff76a7d070d8160c89bc39b6e85d98f24135b6fed038a3b4de2590d25102d8",
+        "stripComponents": 1
       }
     },
     "x64": {
       "dolt": {
-        "url": "https://github.com/dolthub/dolt/releases/download/v2.1.0/dolt-darwin-amd64.tar.gz",
-        "sha256": "3c2a10a48c55a412e0c3e1424fffeac995e9c0d7124ad4d2406d0252b63c8f3f",
+        "url": "https://github.com/dolthub/dolt/releases/download/v2.3.2/dolt-darwin-amd64.tar.gz",
+        "sha256": "6e438bcb2ffa1e4d0fcf06c0add56c0e87d7c9d2fc95de55a3eed2d5346e9f2b",
         "stripComponents": 1
       },
       "git": {
         "url": "https://github.com/desktop/dugite-native/releases/download/v2.53.0-4/dugite-native-v2.53.0-4098283-macOS-x64.tar.gz",
         "sha256": "ae6686718aa34f4140424db16b92a47dcffd6d1f312eb8b5f3b267f7404e2680",
         "stripComponents": 0
+      },
+      "gcm": {
+        "url": "https://github.com/git-ecosystem/git-credential-manager/releases/download/v2.9.1/gcm-osx-x64-2.9.1.tar.gz",
+        "sha256": "326fc3e1c708ae792b010b2f9f701f3dc4dbaebdf40cafd036254ab0f148c034"
+      },
+      "gitLfs": {
+        "url": "https://github.com/git-lfs/git-lfs/releases/download/v3.8.0/git-lfs-darwin-amd64-v3.8.0.zip",
+        "sha256": "f1c17aeca0b4eaab9ea606226477dbed3b84b56fe0811a9f967d2ea2b2393c53",
+        "stripComponents": 1
       }
     }
   },
@@ -43,12 +61,12 @@
     },
     {
       "name": "GCM-LICENSE",
-      "url": "https://raw.githubusercontent.com/git-ecosystem/git-credential-manager/v2.9.0/LICENSE",
+      "url": "https://raw.githubusercontent.com/git-ecosystem/git-credential-manager/v2.9.1/LICENSE",
       "sha256": "b47f1a8a744ecdc7a3da35804f88552805d33f51a726b87a2105acdfae406b07"
     },
     {
       "name": "Git-LFS-LICENSE.md",
-      "url": "https://raw.githubusercontent.com/git-lfs/git-lfs/v3.7.1/LICENSE.md",
+      "url": "https://raw.githubusercontent.com/git-lfs/git-lfs/v3.8.0/LICENSE.md",
       "sha256": "4fae9062ab5cdd5fb15486b728534d8aded8b4ae9d84b6d66a956f5162c366b6"
     },
     {

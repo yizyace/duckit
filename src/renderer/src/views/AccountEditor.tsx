@@ -20,7 +20,7 @@ export function AccountEditor({
   onClose,
 }: {
   budget: Budget
-  account?: Account
+  account?: Account | undefined
   onCommand: CommandHandler
   onClose: () => void
 }) {

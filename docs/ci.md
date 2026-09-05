@@ -98,6 +98,13 @@ are ignored until a planned Node runtime migration so types stay aligned with No
 Updates open reviewed PRs and
 run the same CI. There is no automatic merge.
 
+Vite 8 uses `electron-vite` 6.0.0-beta.1, whose published peer range supports Vite 8;
+stable electron-vite 5 only supports Vite 5–7. This is an intentional prerelease
+development-tool pin. Prefer the stable 6 release when available. Keep Vite,
+electron-vite and the React plugin compatible, and verify development reloads,
+native Electron tests and packaged launch when changing this toolchain.
+[Upstream peer requirements](https://github.com/alex8088/electron-vite/blob/v6.0.0-beta.1/package.json).
+
 All ordinary jobs have read-only repository access and checkout does not persist
 credentials. Only the final draft-release job has `contents: write`; it does not
 check out or run the application. Pull requests use `pull_request`, including forks,
