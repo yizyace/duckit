@@ -1,6 +1,6 @@
 # Continuous integration and delivery
 
-[CI](../.github/workflows/ci.yml) checks pushes to branches, pull requests, manual
+[CI](../.github/workflows/ci.yml) checks pushes to `main`, pull requests, manual
 runs, and a weekly Monday run at 09:23 UTC. It is also reused by the
 [draft release workflow](../.github/workflows/release.yml).
 
@@ -61,6 +61,8 @@ minimal PATH. DMG/ZIP integrity is checked after smoke. Each `installers-<arch>`
 artifact contains the installers, SHA-256 sums, source/runtime manifest provenance,
 and native smoke report. Only verified outputs are uploaded; retention is seven days.
 The ordinary push/PR and weekly runs save test reports without packaging installers.
+Feature branches are checked through PRs or manual runs, avoiding duplicate push and
+PR jobs for the same change.
 
 ## Version tags and draft releases
 
@@ -87,7 +89,9 @@ Actions use full commit SHA pins with release-version comments. Check publisher
 releases when updating pins. [GitHub's pinning guidance](https://docs.github.com/en/actions/reference/security/secure-use).
 [Dependabot](../.github/dependabot.yml) checks Actions and npm weekly on Tuesday at
 09:00 UTC. Compatible npm minor/patch updates are grouped separately for production
-and development; major npm updates remain separate. Updates open reviewed PRs and
+and development; major npm updates remain separate. Node declaration major updates
+are ignored until a planned Node runtime migration so types stay aligned with Node 24.
+Updates open reviewed PRs and
 run the same CI. There is no automatic merge.
 
 All ordinary jobs have read-only repository access and checkout does not persist
