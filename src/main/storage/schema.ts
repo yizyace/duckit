@@ -76,6 +76,7 @@ export const tables: Table[] = [
     columns: [
       id('id'),
       id('transactionId'),
+      num('position'),
       money('amount'),
       id('categoryId'),
       id('incomeMonth'),
@@ -154,7 +155,12 @@ export function normalize(b: Budget): Record<string, Row[]> {
     payees,
     transactions: transactions.map(({ splits: _, ...t }) => t),
     splits: transactions.flatMap((t) =>
-      t.splits.map((s) => ({ ...s, transferId: s.transferId ?? null, transactionId: t.id })),
+      t.splits.map((s, position) => ({
+        ...s,
+        transferId: s.transferId ?? null,
+        transactionId: t.id,
+        position,
+      })),
     ),
     allocations,
     schedules: schedules.map((s) => ({ ...s, transaction: JSON.stringify(s.transaction) })),
@@ -168,7 +174,10 @@ export function normalize(b: Budget): Record<string, Row[]> {
 }
 export function denormalize(rows: Record<string, Row[]>): unknown {
   const splits = new Map<string, Row[]>()
-  for (const { transactionId, ...split } of rows.splits ?? []) {
+  const orderedSplits = [...(rows.splits ?? [])].sort(
+    (a, b) => Number(a.position) - Number(b.position),
+  )
+  for (const { transactionId, position: _, ...split } of orderedSplits) {
     const key = String(transactionId),
       entries = splits.get(key) ?? []
     entries.push(split)
