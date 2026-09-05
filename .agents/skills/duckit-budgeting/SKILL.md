@@ -17,6 +17,13 @@ missing inherits the preceding choice, initially `AffectsBuffer`. `Confined` car
 a negative category balance; `AffectsBuffer` charges next month's available budget.
 Historical edits must recompute every affected subsequent month.
 
+Preserve ordered posted and scheduled splits. A transfer may occupy a whole
+transaction or one split of a mixed transaction. Update paired legs without
+replacing stable counterpart IDs or moving unrelated expenses; retain counterpart
+cleared/bank/legacy metadata. See the
+[domain boundaries](../../../docs/architecture.md#data-and-process-boundaries) before
+changing representation or persistence.
+
 The pure engine lives in [money](../../../src/engine/money.ts),
 [calendar](../../../src/engine/calendar.ts), [calculator](../../../src/engine/calculator.ts),
 and [transfer logic](../../../src/engine/transfers.ts). Domain mutation and invariant

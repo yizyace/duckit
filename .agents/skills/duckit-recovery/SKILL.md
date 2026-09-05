@@ -6,13 +6,22 @@ description: Implement or verify Duckit migration, portable archives, backups, r
 # Duckit migration and recovery
 
 Use a candidate database, validation report, consistent backup, and atomic active
-pointer for import/restore/migration. Keep the original archive intact. Preserve
+pointer for whole-budget import/restore/migration. Keep the original archive intact. Preserve
 legacy IDs and relevant tombstones. Never create balance adjustments based on
 legacy cached totals. Reject ambiguous revision chains and unsupported schemas.
+
+Statement imports retain an immutable main-owned preview and enter the ordinary
+undoable command path with provenance. Use the
+[import boundaries](../../../docs/architecture.md#imports-and-recovery) and
+[statement guide](../../../docs/statements.md); replacing a database would lose the
+intended command history.
 
 `.duckit` exports contain versioned normalized data and checksums, without machine
 credentials or activated remotes. GitHub recovery requires Dolt clone, not git clone.
 Preserve both diverged histories and verify reviewed hashes before resolution.
+Sync cancellation must leave the active local database usable; carry abort signals
+only on sync-owned handles/callbacks and create a new manager to resume. Local-save
+success remains distinct from later checkpoint, backup or upload failure.
 
 - Legacy reconstruction starts in [YNAB import](../../../src/main/imports/ynab.ts),
   with [causal reconstruction](../../../src/main/imports/ynab-reconstruction.ts) and

@@ -19,9 +19,13 @@ Use Node 24 and the committed npm lockfile:
 npm ci
 npm run runtime:fetch
 npm run test:transport
-node scripts/transport-proof.ts --arch=x64
 npx vitest run tests/runtime.test.ts
 ```
+
+`npm run test:transport` selects the current Node architecture; run it with native
+Node on the matching Mac. Run the Intel transport proof on a native Intel Mac. Avoid
+requesting `--arch=x64` on Apple Silicon: the standalone proof does not have the
+packaged smoke test's prelaunch host guard.
 
 `node scripts/runtime-fetch.ts arm64` prepares just one architecture. With no arguments, both architectures are downloaded. Preparation verifies checksums before extraction, rejects unsafe archive paths and escaping symlinks, builds a candidate directory, and only then replaces the previous bundle. A failed download or extraction keeps the existing bundle. A corrupt cached download fails visibly; remove that digest's file under `resources/runtime/.downloads` before retrying.
 
@@ -37,6 +41,13 @@ runtime/
   licenses/...
   manifest.json
 ```
+
+Runtime preparation recursively reads Mach-O architecture declarations before
+promoting the candidate. Every native binary must support the requested architecture,
+and the required Dolt/Git/GCM/LFS helpers must exist as compatible native code.
+Package smoke repeats the recursive check over the complete Electron app before
+launching it and requires a native host, Node and app. Intel package execution under
+Rosetta is rejected by this gate; use the [native Intel CI runner](ci.md) instead.
 
 Keep the entire Git tree: its helper programs, symlinks and GCM runtime are required. Set `GIT_EXEC_PATH` to `git/libexec/git-core` and `GIT_TEMPLATE_DIR` to `git/share/git-core/templates`. Put the bundled `git/bin`, `git/libexec/git-core` and `dolt/bin` first on the subprocess `PATH`; the remaining `/usr/bin` and `/bin` entries provide macOS utilities such as SSH. The proof clears inherited Git repository/configuration variables and retains `SSH_AUTH_SOCK` for existing credentials.
 

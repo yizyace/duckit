@@ -9,6 +9,8 @@ Follow [contributor startup](../../../docs/development.md) for shared ownership,
 review, and verification conventions. Consult [architecture](../../../docs/architecture.md)
 for the application boundaries and [capability status](../../../docs/capabilities.md)
 for remaining acceptance limits.
+Use [agent work](../../../docs/agent-work.md) to assign files, coordinate shared
+contracts, and hand off evidence when work spans modules or agents.
 
 Renderer access stops at `DuckitAPI`. Validate operation inputs and sender/frame in
 main. Never forward arbitrary IPC channel names, SQL, shell commands, paths or

@@ -18,5 +18,6 @@ npm run package:mac  # Apple Silicon and Intel artifacts, no publishing
 ```
 
 See [architecture](docs/architecture.md), [capability status](docs/capabilities.md),
-[installation](docs/install.md), and [contributor startup](docs/development.md). Financial archives and budgets must
+[installation](docs/install.md), [CI and releases](docs/ci.md), and
+[contributor startup](docs/development.md). Financial archives and budgets must
 never be committed. Manual updates are the initial distribution model.

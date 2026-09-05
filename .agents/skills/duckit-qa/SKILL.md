@@ -37,3 +37,7 @@ Public CI, fixtures, and artifacts contain only synthetic data. Record focused Q
 and its limits; [capability status](../../../docs/capabilities.md) distinguishes
 module checks from the integrated release gate. Follow
 [contributor startup](../../../docs/development.md) for independent review before closure.
+Use the [evidence handoff conventions](../../../docs/agent-work.md#keep-a-reviewable-handoff)
+to identify the tested revision, artifact and execution architecture. Record local,
+live CI and packaged results separately; a newly written workflow is still awaiting
+run evidence.
