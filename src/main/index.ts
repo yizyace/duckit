@@ -84,7 +84,17 @@ function syncOperation<T>(operation: () => Promise<T>): Promise<T> {
 }
 function background() {
   if (quitting || backgroundSync || !service || startupError) return
-  void syncOperation(() => manager.sync()).catch(() => {})
+  // sync() publishes its own status before rejecting; never leave a stale success behind.
+  void syncOperation(() => manager.sync()).catch((error: unknown) => {
+    if (service.status.remote === 'synced' || service.status.remote === 'syncing')
+      service.publish({
+        remote: 'offline',
+        message:
+          error instanceof Error && error.message
+            ? error.message
+            : 'Background synchronization failed. Your budget is saved locally.',
+      })
+  })
 }
 function resultError(error: unknown): OperationResult<never> {
   const code =
@@ -143,6 +153,19 @@ app.whenReady().then(async () => {
   })
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event) => event.preventDefault())
+  const trusted = new URL(rendererURL)
+  const isRendererDocument = (url: string) => {
+    try {
+      const sender = new URL(url)
+      return (
+        sender.protocol === trusted.protocol &&
+        sender.host === trusted.host &&
+        sender.pathname === trusted.pathname
+      )
+    } catch {
+      return false
+    }
+  }
   const handle = <T>(
     name: string,
     validator: z.ZodType<T>,
@@ -152,7 +175,7 @@ app.whenReady().then(async () => {
       if (
         event.sender !== window?.webContents ||
         event.senderFrame !== event.sender.mainFrame ||
-        event.senderFrame.url !== new URL(rendererURL).href
+        !isRendererDocument(event.senderFrame.url)
       )
         return { ok: false, code: 'invalid', message: 'Untrusted application request' }
       try {
