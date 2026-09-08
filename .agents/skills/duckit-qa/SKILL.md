@@ -21,8 +21,10 @@ scoped to accounts. Uncertain statement matches require explicit selection.
   [sync tests](../../../tests/sync.test.ts) exercise interruption and recovery.
   Run focused files with `npx vitest run` and their repository-relative paths.
 
-Use [real Electron tests](../../../tests/e2e/) for keyboard, focus, labels and
-navigation. Inspect rendered screenshots and run an accessibility audit.
+Use [real Electron tests](../../../tests/e2e/) for requested workflows, keyboard
+input and navigation. Inspect rendered screenshots for relevant product changes.
+Follow the [owner's scope](../../../docs/development.md): do not perform VoiceOver
+testing or accessibility work, or create acceptance gates for either.
 `npm run test:e2e` builds before running these tests; after a current build,
 `npx playwright test tests/e2e/recovery.spec.ts` targets the recovery flows.
 
