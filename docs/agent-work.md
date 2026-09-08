@@ -62,6 +62,16 @@ The [QA skill](../.agents/skills/duckit-qa/SKILL.md) maps failure scenarios to t
 Keep real-budget archives, databases, screenshots, logs and oracle outputs outside
 the repository. Public fixtures and uploaded reports contain only synthetic data.
 
+Coordinate one native UI session at a time. For interactive desktop automation,
+launch through an isolated test harness and confirm its ready signal, live process
+and synthetic window before selecting it in the UI tool. App selection can launch
+a stopped application with the normal environment, and a shared Electron bundle
+identifier can select another running instance. If the harness exits or selection
+is ambiguous, stop that attempt. Before sending input, verify the selected window
+matches the live harness's synthetic window; a full app path alone is insufficient.
+Selecting the app again does not preserve test storage isolation. Keep the harness
+alive until UI inspection finishes.
+
 ## Keep a reviewable handoff
 
 Send the integrating agent the changed paths, observable behavior, any contract
