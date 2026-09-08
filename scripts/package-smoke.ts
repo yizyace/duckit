@@ -68,6 +68,7 @@ async function main() {
   }
   const exec = promisify(execFile)
   let app: ElectronApplication | undefined
+  let report: object | undefined
   try {
     // Probe Foundation with the development Electron before the production entry
     // point can access storage. Do not launch a package if macOS ignores isolation.
@@ -196,14 +197,52 @@ async function main() {
     ;({ page, paths } = await launch())
     const reopened: AppState = unwrap(await page.evaluate(() => window.duckit.getState()))
     assert.deepEqual(reopened.budget, snapshot)
+    const altered = unwrap(
+      await page.evaluate(
+        ({ transaction, expectedRevision }) =>
+          window.duckit.command({
+            id: crypto.randomUUID(),
+            expectedRevision,
+            changes: [
+              {
+                type: 'transaction.put',
+                value: {
+                  ...transaction,
+                  amount: '23456',
+                  memo: 'Synthetic change after the packaged backup',
+                  splits: transaction.splits.map((split) => ({ ...split, amount: '23456' })),
+                },
+              },
+            ],
+          }),
+        {
+          transaction: snapshot.transactions[0]!,
+          expectedRevision: reopened.budget!.revision,
+        },
+      ),
+    )
+    assert.equal(altered.budget!.transactions[0]!.amount, '23456')
+    assert(altered.budget!.revision > snapshot.revision)
+    // Reopening proves the different domain state was durable before restoration.
+    await app!.close()
+    app = undefined
+    ;({ page, paths } = await launch())
+    const alteredReopened = unwrap(await page.evaluate(() => window.duckit.getState()))
+    assert.deepEqual(alteredReopened.budget, altered.budget)
     const restored = unwrap(
       await page.evaluate(
         ({ id, expectedRevision }) => window.duckit.restoreBackup({ id, expectedRevision }),
-        { id: backup.id, expectedRevision: reopened.budget!.revision },
+        { id: backup.id, expectedRevision: alteredReopened.budget!.revision },
       ),
     )
+    assert(restored.budget!.revision > altered.budget!.revision)
     assert.deepEqual({ ...restored.budget, revision: snapshot.revision }, snapshot)
-    const report = {
+    await app!.close()
+    app = undefined
+    ;({ page, paths } = await launch())
+    const restoredReopened = unwrap(await page.evaluate(() => window.duckit.getState()))
+    assert.deepEqual(restoredReopened.budget, restored.budget)
+    report = {
       package: bundle,
       architecture: paths.arch,
       hostArchitecture: nativeArchitecture,
@@ -219,17 +258,28 @@ async function main() {
         'backup',
         'clean quit',
         'reopen parity',
-        'backup restore parity',
+        'post-backup edit reopen parity',
+        'changed-data backup restore parity',
+        'restored data reopen parity',
       ],
+      restoration: {
+        originalAmount: snapshot.transactions[0]!.amount,
+        alteredAmount: altered.budget!.transactions[0]!.amount,
+        restoredAmount: restoredReopened.budget!.transactions[0]!.amount,
+        alteredRevision: altered.budget!.revision,
+        restoredRevision: restoredReopened.budget!.revision,
+      },
       versions,
       result: 'passed',
     }
-    if (reportPath) await writeFile(reportPath, JSON.stringify(report, null, 2), { mode: 0o600 })
-    console.log(JSON.stringify(report, null, 2))
   } finally {
     if (app) await app.close()
     await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
+  // A success artifact also means the last application closed and storage cleanup passed.
+  assert(report)
+  if (reportPath) await writeFile(reportPath, JSON.stringify(report, null, 2), { mode: 0o600 })
+  console.log(JSON.stringify(report, null, 2))
 }
 main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : 'Packaged smoke failed')
