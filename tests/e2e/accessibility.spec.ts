@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { observeKeyboard } from './keyboard-diagnostics'
 
 test('exposes visible transaction text and selected-state contrast in both themes', async ({}, info) => {
   const root = await mkdtemp(join(tmpdir(), 'duckit-a11y-e2e-'))
@@ -49,8 +50,11 @@ test('contains budget labels while keeping the narrow grid keyboard-scrollable',
     args: ['.'],
     env: { ...process.env, DUCKIT_TEST_ROOT: root, DUCKIT_DEMO: '1' },
   })
+  let finishDiagnostics: Awaited<ReturnType<typeof observeKeyboard>> | undefined
+  let failed = false
   try {
     const page = await app.firstWindow()
+    finishDiagnostics = await observeKeyboard(app, page)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await expect(page.getByRole('heading', { name: 'Budget', exact: true })).toBeVisible()
     // 320 CSS pixels also represents a desktop viewport under magnification.
@@ -76,7 +80,13 @@ test('contains budget labels while keeping the narrow grid keyboard-scrollable',
     await expect(grid).toBeFocused()
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
     await page.screenshot({ path: info.outputPath('budget-320.png') })
+  } catch (error) {
+    failed = true
+    throw error
   } finally {
+    await finishDiagnostics?.(info, failed).catch((error: unknown) => {
+      console.warn('Could not finish keyboard diagnostics:', error)
+    })
     await app.close()
     await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }

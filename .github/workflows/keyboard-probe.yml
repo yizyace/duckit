@@ -1,0 +1,65 @@
+name: Keyboard diagnostics (ARM probe)
+
+on:
+  # Dispatch cannot run a new workflow until it exists on the default branch.
+  # This one diagnostic branch can run it without changing required CI.
+  push:
+    branches: [test/keyboard-ci-diagnostics]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keyboard-probe:
+    name: Observe keyboard scrolling on macOS 15 ARM
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Verify native runner architecture
+        run: node -e "require('node:assert/strict').equal(process.arch, 'arm64')"
+      - run: npm ci
+      - name: Install Electron before testing
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if npm run electron:install; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            echo "::warning::Electron installation failed (attempt $attempt of 3); retrying setup."
+            sleep "$((attempt * 5))"
+          done
+      - name: Verify bundled runtime downloads
+        run: node scripts/runtime-fetch.ts arm64
+      - name: Build production application
+        run: npm run build
+      # Repetitions are independent observations, not retries of a failed test.
+      # Any failure keeps this diagnostic job red. Required CI is unchanged.
+      - name: Observe twenty independent keyboard tests
+        timeout-minutes: 15
+        run: >-
+          npx --no-install playwright test tests/e2e/accessibility.spec.ts
+          --grep 'contains budget labels while keeping the narrow grid keyboard-scrollable'
+          --workers=1 --repeat-each=20 --retries=0
+      - name: Save synthetic keyboard observations
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: keyboard-probe-arm64
+          path: |
+            reports/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 7
