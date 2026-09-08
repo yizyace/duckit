@@ -1,5 +1,11 @@
 # Contributor startup
 
+Duckit is for personal local use. The owner has explicitly excluded VoiceOver
+testing and accessibility work from this project. Do not add accessibility audits,
+remediation tasks or acceptance gates. Signing, notarization and publication are
+also outside the intended scope. Focus verification on requested functionality,
+local data reliability and CI regressions.
+
 1. Read `CONSTITUTION.md`, [architecture](architecture.md), and [capability status](capabilities.md).
 2. Inspect the working tree before editing. Other contributors may be active.
 3. Use Node 24, `npm ci`, and synthetic fixtures. Never develop against real budgets.

@@ -9,6 +9,8 @@ The intended use is a personal, local application. Unsigned native builds are
 supported without an Apple Developer account. Signing, notarization and fresh-Mac
 distribution testing are not completion gates for use on the verified local Mac.
 The verification limits below still distinguish what was actually tested.
+VoiceOver testing and accessibility work are explicitly outside the owner's scope;
+their absence is not remaining implementation work or an acceptance blocker.
 
 | Capability               | Verified behavior                                                                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
