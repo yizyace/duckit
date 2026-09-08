@@ -5,6 +5,11 @@ below. Public verification uses synthetic data; private migration evidence stays
 outside this repository. The original application's historical display totals are
 not a verified oracle.
 
+The intended use is a personal, local application. Unsigned native builds are
+supported without an Apple Developer account. Signing, notarization and fresh-Mac
+distribution testing are not completion gates for use on the verified local Mac.
+The verification limits below still distinguish what was actually tested.
+
 | Capability               | Verified behavior                                                                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Desktop boundary         | Sandboxed Electron renderer, named validated IPC, isolated development/demo/test roots                                                           |

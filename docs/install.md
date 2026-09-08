@@ -8,8 +8,10 @@ Duckit contains its own Electron, Dolt, portable Git and Git Credential Manager.
 You do not need Node, npm, Homebrew, developer tools, or a Duckit account. Budgeting
 works offline. GitHub is optional and connects from Settings.
 
-The initial local builds are unsigned and unnotarized because this machine has no
-valid signing identity. macOS may block the first launch. After attempting to open
+Personal local use does not require an Apple Developer account. The local builds
+are intentionally unsigned and unnotarized; signing and notarization are optional
+distribution work, not prerequisites for using Duckit on your own Mac.
+macOS may block the first launch. After attempting to open
 Duckit, use System Settings → Privacy & Security → Open Anyway for this application
 and confirm the launch. Only do this for a build you obtained from this project.
 Keep macOS security protections enabled. A managed Mac may require its administrator
