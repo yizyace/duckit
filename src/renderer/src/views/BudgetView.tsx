@@ -161,6 +161,27 @@ export function BudgetView({ budget, onCommand }: Props) {
           role="region"
           tabIndex={0}
           aria-label="Budget grid; scroll horizontally for more months"
+          onKeyDown={(event) => {
+            if (
+              event.target !== event.currentTarget ||
+              event.defaultPrevented ||
+              event.altKey ||
+              event.ctrlKey ||
+              event.metaKey ||
+              event.shiftKey ||
+              event.nativeEvent.isComposing ||
+              !['ArrowLeft', 'ArrowRight'].includes(event.key) ||
+              event.currentTarget.scrollWidth <= event.currentTarget.clientWidth
+            )
+              return
+            // Chromium can finish a native keyboard scroll without moving this
+            // region. Handle its own arrows immediately; child controls keep theirs.
+            event.preventDefault()
+            event.currentTarget.scrollBy({
+              left: event.key === 'ArrowRight' ? 40 : -40,
+              behavior: 'instant',
+            })
+          }}
         >
           <table className="data-table budget-table">
             <caption className="sr-only">

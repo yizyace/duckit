@@ -74,6 +74,83 @@ test('contains budget labels while keeping the narrow grid keyboard-scrollable',
     await page.keyboard.press('ArrowRight')
     await expect.poll(() => grid.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
     await expect(grid).toBeFocused()
+    await page.keyboard.press('ArrowLeft')
+    await expect.poll(() => grid.evaluate((element) => element.scrollLeft)).toBe(0)
+    await expect(grid).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(grid.getByRole('button').first()).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(grid).toBeFocused()
+
+    // Synthetic self-arrows make removal of the handler a deterministic failure.
+    // Exclusions do not assert what the browser's own control defaults should do.
+    const { intercepted, handled } = await grid.evaluate((element) => {
+      const original = element.scrollBy
+      let calls = 0
+      element.scrollBy = (...args: unknown[]) => {
+        calls++
+        Reflect.apply(original, element, args)
+      }
+      const input = document.createElement('input')
+      element.append(input)
+      const button = element.querySelector('button')!
+      const cases: Array<{
+        name: string
+        target: Element
+        init: KeyboardEventInit
+        canceled?: boolean
+      }> = [
+        ...['altKey', 'ctrlKey', 'metaKey', 'shiftKey'].map((modifier) => ({
+          name: modifier,
+          target: element,
+          init: { key: 'ArrowRight', [modifier]: true },
+        })),
+        ...['Tab', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter', 'Escape'].map((key) => ({
+          name: key,
+          target: element,
+          init: { key },
+        })),
+        { name: 'composing', target: element, init: { key: 'ArrowRight', isComposing: true } },
+        { name: 'already canceled', target: element, init: { key: 'ArrowRight' }, canceled: true },
+        { name: 'nested button', target: button, init: { key: 'ArrowRight' } },
+        { name: 'nested input', target: input, init: { key: 'ArrowLeft' } },
+      ]
+      try {
+        const intercepted = cases.flatMap(({ name, target, init, canceled }) => {
+          const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+          if (canceled) event.preventDefault()
+          const before = element.scrollLeft
+          calls = 0
+          target.dispatchEvent(event)
+          return event.defaultPrevented !== Boolean(canceled) ||
+            calls !== 0 ||
+            element.scrollLeft !== before
+            ? [
+                {
+                  name,
+                  prevented: event.defaultPrevented,
+                  calls,
+                  before,
+                  after: element.scrollLeft,
+                },
+              ]
+            : []
+        })
+        const handled = ['ArrowRight', 'ArrowLeft'].map((key) => {
+          const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+          element.dispatchEvent(event)
+          return { prevented: event.defaultPrevented, offset: element.scrollLeft }
+        })
+        return { intercepted, handled }
+      } finally {
+        element.scrollBy = original
+        input.remove()
+      }
+    })
+    expect(intercepted).toEqual([])
+    expect(handled[0]!.prevented).toBe(true)
+    expect(handled[0]!.offset).toBeGreaterThan(0)
+    expect(handled[1]).toEqual({ prevented: true, offset: 0 })
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
     await page.screenshot({ path: info.outputPath('budget-320.png') })
   } finally {
