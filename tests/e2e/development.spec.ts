@@ -129,7 +129,7 @@ contextBridge.exposeInMainWorld('__duckitDevelopmentTest', { version: ${version}
     await writeFile(
       rendererPath,
       (await readFile(rendererPath, 'utf8')).replace(
-        'Welcome to your next chapter',
+        'Create a budget',
         'Renderer refresh completed',
       ),
     )

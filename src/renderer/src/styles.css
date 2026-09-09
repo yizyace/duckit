@@ -3,60 +3,60 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #fafbf8;
-  --foreground: #25382f;
-  --card: #ffffff;
-  --card-foreground: #25382f;
-  --primary: #24664f;
+  --background: #e8e5df;
+  --foreground: #302f2c;
+  --card: #f3f1eb;
+  --card-foreground: #302f2c;
+  --primary: #426483;
   --primary-foreground: #ffffff;
-  --secondary: #e9efe8;
-  --secondary-foreground: #355743;
-  --muted: #f0f3ee;
-  --muted-foreground: #647166;
-  --accent: #e8efe7;
-  --accent-foreground: #254d38;
-  --destructive: #aa3b35;
+  --secondary: #dedbd4;
+  --secondary-foreground: #45433e;
+  --muted: #e4e0d8;
+  --muted-foreground: #625f59;
+  --accent: #dce3e8;
+  --accent-foreground: #344f68;
+  --destructive: #b3453e;
   --destructive-foreground: #ffffff;
-  --destructive-soft: #fcece8;
-  --success: #24664f;
-  --success-soft: #e7f1e9;
-  --warning: #895619;
-  --warning-soft: #fbf0d8;
-  --border: #dfe6dc;
-  --input: #7b8d78;
-  --ring: #367b5a;
-  --sidebar: #f1f4ed;
-  --sidebar-active: #dfebdc;
-  --sidebar-active-foreground: #244e34;
+  --destructive-soft: #f1ded8;
+  --success: #426483;
+  --success-soft: #dce3e8;
+  --warning: #80561f;
+  --warning-soft: #eee1c9;
+  --border: #ccc7bd;
+  --input: #8b867c;
+  --ring: #426483;
+  --sidebar: #e1ded7;
+  --sidebar-active: #d2dce4;
+  --sidebar-active-foreground: #344f68;
   --radius: 0.75rem;
 }
 
 .dark {
-  --background: #171e1b;
-  --foreground: #e7ede5;
-  --card: #1e2823;
-  --card-foreground: #e7ede5;
-  --primary: #a9d0ab;
-  --primary-foreground: #183722;
-  --secondary: #2d3c32;
-  --secondary-foreground: #d5e6d2;
-  --muted: #26332b;
-  --muted-foreground: #a6b4a8;
-  --accent: #304034;
-  --accent-foreground: #e2efdd;
-  --destructive: #f7a79e;
-  --destructive-foreground: #45221f;
-  --destructive-soft: #4c2c28;
-  --success: #aed8b5;
-  --success-soft: #263f2f;
-  --warning: #efc27c;
-  --warning-soft: #493923;
-  --border: #35453a;
-  --input: #607863;
-  --ring: #b7d8a6;
-  --sidebar: #1b241f;
-  --sidebar-active: #344c37;
-  --sidebar-active-foreground: #d7efcb;
+  --background: #292b2e;
+  --foreground: #e7e5e0;
+  --card: #32353a;
+  --card-foreground: #e7e5e0;
+  --primary: #99b9d3;
+  --primary-foreground: #253746;
+  --secondary: #3b3e43;
+  --secondary-foreground: #e1dfda;
+  --muted: #383b40;
+  --muted-foreground: #b0b2b5;
+  --accent: #414e59;
+  --accent-foreground: #d7e6f1;
+  --destructive: #f28b82;
+  --destructive-foreground: #3c2322;
+  --destructive-soft: #503433;
+  --success: #99b9d3;
+  --success-soft: #364650;
+  --warning: #e6be82;
+  --warning-soft: #4a4031;
+  --border: #4b4e53;
+  --input: #777c84;
+  --ring: #99b9d3;
+  --sidebar: #25272a;
+  --sidebar-active: #3c4c5a;
+  --sidebar-active-foreground: #d7e6f1;
 }
 
 @theme inline {
@@ -363,32 +363,13 @@
 .workspace {
   min-width: 0;
 }
-.workspace-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 67px;
-  margin: 0 36px;
-  border-bottom: 1px solid var(--border);
-}
-.workspace-topbar p {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted-foreground);
-  font-size: 11px;
-}
-.workspace-topbar p svg {
-  width: 14px;
-  height: 14px;
-}
 .workspace-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 22px;
-  padding: 33px 36px 29px;
+  gap: 16px;
+  padding: 22px 28px 20px;
 }
 .eyebrow {
   margin-bottom: 7px;
@@ -403,16 +384,10 @@
   max-width: 100%;
   overflow-wrap: anywhere;
   border-radius: 3px;
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 630;
   letter-spacing: -0.9px;
   line-height: 1.2;
-}
-.page-subtitle {
-  margin-top: 9px;
-  color: var(--muted-foreground);
-  font-size: 13px;
-  line-height: 1.55;
 }
 .header-actions {
   display: flex;
@@ -421,7 +396,7 @@
   gap: 9px;
 }
 .workspace-content {
-  padding: 0 36px 36px;
+  padding: 0 28px 28px;
   min-width: 0;
 }
 .workspace-content:focus:not(:focus-visible),
@@ -447,7 +422,7 @@
   position: fixed;
   z-index: 50;
   inset: 0;
-  background: rgb(10 22 15 / 50%);
+  background: rgb(15 17 20 / 55%);
   backdrop-filter: blur(3px);
 }
 .dialog-content {
@@ -474,7 +449,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--card);
-  box-shadow: 0 2px 3px rgb(24 48 30 / 2%);
+  box-shadow: 0 2px 3px rgb(25 25 25 / 3%);
 }
 .panel-heading {
   display: flex;
@@ -602,10 +577,6 @@
     padding-right: 12px;
     padding-left: 12px;
   }
-  .workspace-topbar {
-    margin-right: 24px;
-    margin-left: 24px;
-  }
   .workspace-header {
     padding-right: 24px;
     padding-left: 24px;
@@ -677,11 +648,6 @@
   }
   .save-status {
     padding-top: 7px;
-  }
-  .workspace-topbar {
-    height: 56px;
-    margin-right: 20px;
-    margin-left: 20px;
   }
   .workspace-header,
   .workspace-content {

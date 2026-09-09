@@ -14,7 +14,6 @@ import {
   LoaderCircle,
   Moon,
   Settings,
-  ShieldCheck,
   Sun,
   Wallet,
   type LucideIcon,
@@ -32,7 +31,6 @@ export type ShellProps = {
   setView: (view: string) => void
   children: ReactNode
   actions?: ReactNode
-  subtitle?: string
 }
 
 const navigation = [
@@ -42,14 +40,6 @@ const navigation = [
 ] as const
 
 const navLink = 'nav-link disabled:pointer-events-none disabled:opacity-50'
-
-const descriptions: Record<string, string> = {
-  welcome: 'Create a budget or bring your history.',
-  budget: 'Make room for what matters.',
-  accounts: 'A clear view of your everyday money.',
-  reports: 'See the story behind your spending.',
-  settings: 'Make this budget your own.',
-}
 
 const accountIcons: Record<Account['type'], LucideIcon> = {
   checking: Landmark,
@@ -108,7 +98,7 @@ function SaveStatus({ status }: { status: Status }) {
   )
 }
 
-export function Shell({ budget, status, view, setView, children, actions, subtitle }: ShellProps) {
+export function Shell({ budget, status, view, setView, children, actions }: ShellProps) {
   const { resolvedTheme, setTheme } = useTheme()
   const heading = useRef<HTMLHeadingElement>(null)
   const previousView = useRef(view)
@@ -201,12 +191,10 @@ export function Shell({ budget, status, view, setView, children, actions, subtit
             {budget?.name.charAt(0).toLocaleUpperCase() || 'D'}
           </span>
           <div>
-            <p className="budget-name" title={budget?.name ?? 'Your first budget'}>
-              {budget?.name ?? 'Your first budget'}
+            <p className="budget-name" title={budget?.name ?? 'No budget open'}>
+              {budget?.name ?? 'No budget open'}
             </p>
-            <p className="budget-meta">
-              {budget ? `${budget.currency} · Personal budget` : 'A fresh start'}
-            </p>
+            <p className="budget-meta">{budget ? budget.currency : 'Create or import a budget'}</p>
           </div>
         </div>
 
@@ -237,7 +225,11 @@ export function Shell({ budget, status, view, setView, children, actions, subtit
             {onBudget.length ? (
               <ul aria-label="Budget accounts">{onBudget.map(accountButton)}</ul>
             ) : (
-              <p className="sidebar-hint">Your accounts will live here.</p>
+              <p className="sidebar-hint">
+                {budget
+                  ? 'Add an account in All accounts.'
+                  : 'Create or import a budget to add accounts.'}
+              </p>
             )}
 
             {tracking.length > 0 && (
@@ -276,12 +268,19 @@ export function Shell({ budget, status, view, setView, children, actions, subtit
       </aside>
 
       <div className="workspace">
-        <header>
-          <div className="workspace-topbar">
-            <p>
-              <ShieldCheck aria-hidden="true" />
-              <span>Your budget, on your Mac</span>
-            </p>
+        <header className="workspace-header">
+          <div className="min-w-0">
+            {selectedAccount && (
+              <p className="eyebrow">
+                {selectedAccount.onBudget ? 'Budget account' : 'Tracking account'}
+              </p>
+            )}
+            <h1 ref={heading} tabIndex={-1}>
+              {title}
+            </h1>
+          </div>
+          <div className="header-actions">
+            {actions}
             <Button
               variant="ghost"
               size="icon"
@@ -291,27 +290,6 @@ export function Shell({ budget, status, view, setView, children, actions, subtit
             >
               {resolvedTheme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
             </Button>
-          </div>
-          <div className="workspace-header">
-            <div className="min-w-0">
-              <p className="eyebrow">
-                {selectedAccount
-                  ? selectedAccount.onBudget
-                    ? 'Budget account'
-                    : 'Tracking account'
-                  : 'Your workspace'}
-              </p>
-              <h1 ref={heading} tabIndex={-1}>
-                {title}
-              </h1>
-              <p className="page-subtitle">
-                {subtitle ??
-                  (selectedAccount
-                    ? 'Every transaction has a place.'
-                    : (descriptions[onboarding ? 'welcome' : view] ?? descriptions.budget))}
-              </p>
-            </div>
-            {actions && <div className="header-actions">{actions}</div>}
           </div>
         </header>
         <main

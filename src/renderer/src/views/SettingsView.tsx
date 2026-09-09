@@ -82,8 +82,8 @@ export function WelcomeView({ onState, onImport }: Props) {
     <div className="onboarding page-stack">
       <section className="panel">
         <div className="panel-heading">
-          <h2>Welcome to your next chapter</h2>
-          <p>Plan every dollar, keep your history, and work entirely offline.</p>
+          <h2>Create a budget</h2>
+          <p>Name your budget and choose its currency.</p>
         </div>
         <form className="form-grid" onSubmit={create}>
           <div>
@@ -119,8 +119,8 @@ export function WelcomeView({ onState, onImport }: Props) {
       </section>
       <section className="panel">
         <div className="panel-heading">
-          <h2>Bring your history</h2>
-          <p>Preview and validate your archive before it becomes active.</p>
+          <h2>Import a budget</h2>
+          <p>Choose a YNAB4 or Duckit archive to preview.</p>
         </div>
         <div className="toolbar">
           <Button variant="outline" onClick={() => onImport('ynab4')}>
@@ -134,7 +134,7 @@ export function WelcomeView({ onState, onImport }: Props) {
       <section className="panel">
         <div className="panel-heading">
           <h2>Recover from GitHub</h2>
-          <p>Optional. No Duckit account is needed.</p>
+          <p>Restore a budget from its private GitHub repository.</p>
         </div>
         <Connection onState={onState} />
       </section>

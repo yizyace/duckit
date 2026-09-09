@@ -777,7 +777,7 @@ export function RegisterView({
                 {budget.accounts.length
                   ? query
                     ? 'No matching transactions'
-                    : 'Your register is ready'
+                    : 'No transactions yet'
                   : 'Start with an account'}
               </h2>
               <p>

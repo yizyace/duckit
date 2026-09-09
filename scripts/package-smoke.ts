@@ -107,7 +107,7 @@ async function main() {
     const initial = unwrap(await page.evaluate(() => window.duckit.getState()))
     assert.equal(initial.budget, null)
     assert.equal(initial.demo, false)
-    await expect(page.getByRole('heading', { name: 'Welcome to your next chapter' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Create a budget' })).toBeVisible()
     await page.getByLabel('Budget name', { exact: true }).fill('Packaged synthetic smoke')
     await page.getByRole('button', { name: 'Create a budget', exact: true }).click()
     await page.getByRole('button', { name: 'All accounts', exact: true }).click()

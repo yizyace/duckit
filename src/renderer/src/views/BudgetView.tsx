@@ -304,8 +304,8 @@ export function BudgetView({ budget, onCommand }: Props) {
         </div>
         {!budget.categories.length && (
           <div className="empty-state">
-            <h2>Give your money a job</h2>
-            <p>Create a category, then assign money to this month’s priorities.</p>
+            <h2>No categories yet</h2>
+            <p>Create a category, then assign money to it.</p>
             <Button onClick={() => openCategory()}>Create a category</Button>
           </div>
         )}
