@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Redo2, Undo2 } from 'lucide-react'
 import type { AppState, Change, ImportPreview } from '../../shared/contracts'
@@ -15,6 +15,7 @@ import { registerBalances, type AccountTotal } from './views/register-model'
 import { useLocalToday } from './lib/local-date'
 import { useBudgetNavigation } from './lib/budget-navigation'
 import './views/settings.css'
+import { useActivityFeedback } from './lib/activity-feedback'
 export function App() {
   const client = useQueryClient()
   const state = useQuery({
@@ -22,6 +23,8 @@ export function App() {
     queryFn: async () => unwrap(await window.duckit.getState()),
     retry: false,
   })
+  const activity = useActivityFeedback(state.data?.status)
+  const previousRemote = useRef(state.data?.status.remote)
   const [view, setView] = useState('budget'),
     [error, setError] = useState(''),
     [working, setWorking] = useState(false)
@@ -42,7 +45,9 @@ export function App() {
         client.setQueryData<AppState>(stateKey, (previous) =>
           previous ? { ...previous, status } : previous,
         )
-        if (status.remote === 'synced') void client.invalidateQueries({ queryKey: stateKey })
+        if (status.remote === 'synced' && previousRemote.current !== 'synced')
+          void client.invalidateQueries({ queryKey: stateKey })
+        previousRemote.current = status.remote
       }),
     [client],
   )
@@ -108,7 +113,7 @@ export function App() {
         <p role="status">Opening your budget…</p>
       </main>
     )
-  if (state.error || !state.data)
+  if (!state.data)
     return (
       <main className="startup">
         <h1>Duckit could not open</h1>
@@ -121,6 +126,7 @@ export function App() {
     <Shell
       budget={budget}
       balances={balances}
+      activity={activity}
       status={current.status}
       view={view}
       setView={setView}
@@ -155,6 +161,14 @@ export function App() {
         <p className="notice demo-notice">
           Demo workspace · This sample budget is stored separately from your personal budgets.
         </p>
+      )}
+      {state.error && (
+        <div role="alert" className="notice error-notice">
+          Could not refresh the budget: {state.error.message}{' '}
+          <Button variant="ghost" onClick={() => void state.refetch()}>
+            Try again
+          </Button>
+        </div>
       )}
       {error && (
         <div role="alert" className="notice error-notice">

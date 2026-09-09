@@ -10,6 +10,8 @@ it('serializes edits, rejects stale forms, and separates local durability from c
   try {
     const service = new BudgetService(root, resolve('resources/runtime', process.arch), true)
     await service.initialize()
+    const phases: string[] = []
+    service.subscribe((status) => phases.push(status.local))
     const before = (await service.state()).budget!,
       value = { ...before.accounts[0]!, name: 'Edited account' }
     const command = {
@@ -26,6 +28,8 @@ it('serializes edits, rejects stale forms, and separates local durability from c
     ])
     expect(outcomes[0]!.status).toBe('fulfilled')
     expect(outcomes[1]!.status).toBe('rejected')
+    expect(phases[0]).toBe('saving')
+    expect(phases).toContain('saved')
     const state = await service.execute(command)
     expect(state.status.local).toBe('saved')
     expect(state.budget!.revision).toBe(before.revision + 1)

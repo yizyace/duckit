@@ -363,8 +363,26 @@ app.whenReady().then(async () => {
         const before = await service.workspace.database?.read()
         if (before?.revision !== input.expectedRevision)
           throw new StaleRevisionError('The budget changed. Review the backup again.')
-        await service.backups.restore(input.id)
-        return service.state()
+        service.publish({ local: 'saving' })
+        let activated = false
+        try {
+          await service.backups.restore(input.id)
+          activated = true
+          service.publish({
+            local: 'saved',
+            message: service.workspace.activationDurable
+              ? 'Restored and saved on this Mac'
+              : 'Budget restored. Folder durability could not be confirmed; keep Duckit open and check your disk.',
+          })
+          return await service.state()
+        } catch (error) {
+          if (!activated)
+            service.publish({
+              local: 'error',
+              message: 'Backup restoration needs attention. Review and retry.',
+            })
+          throw error
+        }
       })
     },
   )

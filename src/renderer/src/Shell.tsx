@@ -3,15 +3,10 @@ import {
   ArrowDownUp,
   Bird,
   ChartNoAxesCombined,
-  Check,
   ChevronDown,
-  CircleAlert,
-  Cloud,
-  CloudOff,
   CreditCard,
   Landmark,
   LayoutGrid,
-  LoaderCircle,
   Moon,
   Settings,
   Sun,
@@ -25,6 +20,8 @@ import { useTheme } from '@/lib/theme'
 import { useSidebarWidth } from '@/lib/sidebar-width'
 import { money, type AccountTotal } from './views/register-model'
 import './styles.css'
+import { ActivityIndicator, SaveStatus } from './components/SaveStatus'
+import type { ActivityFeedback } from './lib/activity-feedback'
 
 export type ShellProps = {
   budget: Budget | null
@@ -33,6 +30,7 @@ export type ShellProps = {
   view: string
   setView: (view: string) => void
   children: ReactNode
+  activity: ActivityFeedback
   actions?: ReactNode
 }
 
@@ -53,55 +51,16 @@ const accountIcons: Record<Account['type'], LucideIcon> = {
   liability: CreditCard,
 }
 
-const remoteLabels: Record<Status['remote'], string> = {
-  disconnected: 'GitHub not connected',
-  synced: 'Synced to GitHub',
-  syncing: 'Syncing to GitHub…',
-  offline: 'Waiting for connection',
-  conflict: 'Sync needs your review',
-}
-
-function SaveStatus({ status }: { status: Status }) {
-  const LocalIcon =
-    status.local === 'saving' ? LoaderCircle : status.local === 'error' ? CircleAlert : Check
-  const RemoteIcon =
-    status.remote === 'syncing'
-      ? LoaderCircle
-      : status.remote === 'conflict'
-        ? CircleAlert
-        : status.remote === 'offline'
-          ? CloudOff
-          : Cloud
-  return (
-    <div className="save-status" role="status" aria-live="polite" aria-atomic="true">
-      <p className={cn('status-line', status.local === 'error' && 'text-destructive')}>
-        <LocalIcon aria-hidden="true" className={cn(status.local === 'saving' && 'animate-spin')} />
-        <span>
-          {status.local === 'saved'
-            ? 'Saved on this Mac'
-            : status.local === 'saving'
-              ? 'Saving on this Mac…'
-              : 'Local save needs attention'}
-        </span>
-      </p>
-      <p
-        className={cn(
-          'status-line text-muted-foreground',
-          status.remote === 'conflict' && 'text-warning',
-        )}
-      >
-        <RemoteIcon
-          aria-hidden="true"
-          className={cn(status.remote === 'syncing' && 'animate-spin')}
-        />
-        <span>{remoteLabels[status.remote]}</span>
-      </p>
-      {status.message && <p className="status-detail">{status.message}</p>}
-    </div>
-  )
-}
-
-export function Shell({ budget, balances, status, view, setView, children, actions }: ShellProps) {
+export function Shell({
+  budget,
+  balances,
+  status,
+  view,
+  setView,
+  children,
+  actions,
+  activity,
+}: ShellProps) {
   const { resolvedTheme, setTheme } = useTheme()
   const { shellRef, dividerRef } = useSidebarWidth()
   const heading = useRef<HTMLHeadingElement>(null)
@@ -280,7 +239,7 @@ export function Shell({ budget, balances, status, view, setView, children, actio
             <Settings aria-hidden="true" />
             <span>Settings</span>
           </button>
-          <SaveStatus status={status} />
+          <SaveStatus status={status} activity={activity} />
         </div>
         <div
           ref={dividerRef}
@@ -307,6 +266,7 @@ export function Shell({ budget, balances, status, view, setView, children, actio
             </h1>
           </div>
           <div className="header-actions">
+            <ActivityIndicator activity={activity} />
             {actions}
             <Button
               variant="ghost"

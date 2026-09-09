@@ -1,0 +1,40 @@
+.activity-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 144px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--primary);
+  font-size: 12px;
+  line-height: 1.35;
+  transition: background-color 160ms ease;
+}
+.activity-indicator[data-phase='running'],
+.activity-indicator[data-phase='success'] {
+  background: var(--success-soft);
+}
+.activity-indicator[data-phase='error'] {
+  color: var(--destructive);
+  background: var(--destructive-soft);
+}
+.activity-indicator svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.activity-indicator[data-phase='running'] svg,
+.save-status .status-line[data-phase='running'] svg {
+  animation: activity-rotate 1.2s linear infinite;
+}
+.save-status .status-line[data-phase='running'],
+.save-status .status-line[data-phase='success'] {
+  color: var(--primary);
+}
+@keyframes activity-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}

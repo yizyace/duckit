@@ -177,6 +177,7 @@ export const commandSchema = z.object({
 export type Command = z.infer<typeof commandSchema>
 export type Change = z.infer<typeof changeSchema>
 export type Status = {
+  backup?: 'idle' | 'saving' | 'saved' | 'error'
   local: 'saved' | 'saving' | 'error'
   remote: 'disconnected' | 'synced' | 'syncing' | 'offline' | 'conflict'
   message: string

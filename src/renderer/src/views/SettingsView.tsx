@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { unwrap } from '../lib/api'
+import { withFetchFeedback } from '../lib/activity-feedback'
 import { PayeeManager } from './PayeeManager'
 import { SnapshotReview } from './SnapshotReview'
 type Props = { onState: (state: AppState) => void; onImport: (kind: 'ynab4' | 'duckit') => void }
@@ -24,7 +25,7 @@ function Connection({ onState }: { onState: Props['onState'] }) {
     setError('')
     try {
       unwrap(await window.duckit.connectGitHub({ repository }))
-      onState(unwrap(await window.duckit.getState()))
+      onState(await withFetchFeedback(async () => unwrap(await window.duckit.getState())))
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -154,8 +155,10 @@ export function SettingsView({
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
   async function refresh() {
-    setBackups(unwrap(await window.duckit.listBackups()))
-    setConflict(unwrap(await window.duckit.getConflict()))
+    await withFetchFeedback(async () => {
+      setBackups(unwrap(await window.duckit.listBackups()))
+      setConflict(unwrap(await window.duckit.getConflict()))
+    })
   }
   useEffect(() => {
     void refresh().catch((e) => setError((e as Error).message))
@@ -315,7 +318,7 @@ export function SettingsView({
             onClick={() =>
               void run(async () => {
                 unwrap(await window.duckit.disconnectGitHub())
-                onState(unwrap(await window.duckit.getState()))
+                onState(await withFetchFeedback(async () => unwrap(await window.duckit.getState())))
                 setMessage('GitHub disconnected. Local history is preserved.')
               })
             }

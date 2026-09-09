@@ -91,9 +91,18 @@ export class BudgetService {
         currency,
         new Date().toLocaleDateString('sv-SE').slice(0, 7),
       )
-      await this.workspace.activate(await this.workspace.candidate(b))
-      await this.afterActivation()
-      return this.state()
+      this.publish({ local: 'saving' })
+      let activated = false
+      try {
+        await this.workspace.activate(await this.workspace.candidate(b))
+        activated = true
+        await this.afterActivation()
+        return await this.state()
+      } catch (error) {
+        if (!activated)
+          this.publish({ local: 'error', message: 'Budget creation needs attention. Try again.' })
+        throw error
+      }
     })
   }
   async execute(input: Command): Promise<AppState> {
@@ -165,8 +174,14 @@ export class BudgetService {
     }
   }
   async backup(force = false, signal?: AbortSignal): Promise<void> {
-    const metadata = await this.backups.snapshot(force, new Date(), new Set(), signal)
-    if (metadata) this.publish({ lastBackup: metadata.createdAt })
+    this.publish({ backup: 'saving' })
+    try {
+      const metadata = await this.backups.snapshot(force, new Date(), new Set(), signal)
+      this.publish({ backup: 'saved', ...(metadata ? { lastBackup: metadata.createdAt } : {}) })
+    } catch (error) {
+      this.publish({ backup: signal?.aborted ? 'idle' : 'error' })
+      throw error
+    }
   }
   async setBackupDestination(destination: string): Promise<void> {
     const previous = this.backups.destination
@@ -208,12 +223,24 @@ export class BudgetService {
       throw new StaleRevisionError(
         'The budget changed during import preview. Preview it again before replacing it.',
       )
-    await this.backup(true)
-    const next = { ...budget, revision: Math.max(current?.revision ?? -1, budget.revision) + 1 }
-    const candidate = await this.workspace.candidate(next)
-    await beforeActivate?.()
-    await this.workspace.activate(candidate)
-    await this.afterActivation()
-    return this.state()
+    this.publish({ local: 'saving' })
+    let activated = false
+    try {
+      await this.backup(true)
+      const next = { ...budget, revision: Math.max(current?.revision ?? -1, budget.revision) + 1 }
+      const candidate = await this.workspace.candidate(next)
+      await beforeActivate?.()
+      await this.workspace.activate(candidate)
+      activated = true
+      await this.afterActivation()
+      return await this.state()
+    } catch (error) {
+      if (!activated)
+        this.publish({
+          local: 'error',
+          message: 'Budget import needs attention. Review and retry.',
+        })
+      throw error
+    }
   }
 }
