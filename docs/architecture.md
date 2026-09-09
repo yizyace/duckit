@@ -49,6 +49,25 @@ views. Form drafts stay in component state; stale failures refresh the snapshot
 while preserving entered values for explicit review. Components reuse the pure
 engine for calculations and validation. Main remains authoritative for writes.
 
+Renderer preferences stay outside `Budget` and the preload API. `App` retains the
+selected budget month for each budget during its session; a fresh launch starts
+at the local current month. The visible-month count is saved per budget in local
+storage. Budget and report month controls share a portaled, viewport-constrained
+twelve-month chooser; report range validation retains the 600-month limit.
+
+`App` memoizes `registerBalances` once from the account and transaction arrays and
+local today, sharing the exact totals with `Shell` and `RegisterView`. These working
+balances include cleared and uncleared posted transactions through today, excluding
+future transactions and unposted schedules. Local midnight, foregrounding and a
+minute clock check refresh the date without recalculating unchanged balances during
+resizing or view navigation. Financial mutations and undo/redo refresh the snapshot.
+
+Sidebar width is a local renderer preference: 320 pixels by default, from 240 to
+480 pixels, capped at 40 percent of the window. Resizing the window constrains the
+displayed width without losing the preference; the stacked layout at 720 pixels
+and below disables the divider. Double-clicking the divider resets the preference.
+Category labels remain visible while the budget table scrolls horizontally.
+
 ## Local mutation and storage
 
 1. Main preempts background sync, then `BudgetService.execute` enters

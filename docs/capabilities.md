@@ -12,13 +12,23 @@ The verification limits below still distinguish what was actually tested.
 VoiceOver testing and accessibility work are explicitly outside the owner's scope;
 their absence is not remaining implementation work or an acceptance blocker.
 
+[Version 0.1.2](https://github.com/yizyace/duckit/releases/tag/v0.1.2) is the published
+baseline at `80c4ff9`, before the stone/graphite and navigation refinements. Its
+[release run](https://github.com/yizyace/duckit/actions/runs/34297642149) passed on
+native Apple Silicon and Intel: 189 unit/integration tests, 18 Electron tests and
+packaged save, backup, changed-data restore and reopen checks on each architecture.
+The nine release assets include both DMG/ZIP pairs, checksums, source/runtime
+provenance and native smoke reports. Later UI source changes require their own
+verification and are not included in those baseline installers.
+
 | Capability               | Verified behavior                                                                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Desktop boundary         | Sandboxed Electron renderer, named validated IPC, isolated development/demo/test roots                                                           |
 | Exact-money engine       | Income timing, inherited negative carryover, Classic debt categories, splits/transfers, future allocations and historical recomputation          |
 | Persistence              | Normalized Dolt tables, entered split ordering, revision guards, retry receipts, undo/redo and durable writes before checkpoints                 |
 | Register                 | Account/payee entry, search, bulk edits, cleared/reconciled distinctions, mixed transfers and paired recurrence                                  |
-| Budget and reports       | One to three visible months, category and carryover editing, historical income/spending/net-worth reports                                        |
+| Sidebar                  | Exact working balances through local today, full account labels and locally persisted resizing with viewport limits                              |
+| Budget and reports       | Session-retained month, local per-budget one–three-month count, portaled year/month chooser, sticky category labels and historical reports       |
 | Legacy reconstruction    | Canonical generation, dominant full snapshot, causal incremental replay, preserved month identities and private independent oracle workflow      |
 | Bank statements          | CSV and OFX/QFX, declared encoding, exact amounts, account-scoped bank IDs, explicit uncertain matches and preview cancellation                  |
 | Archives and backups     | Checksummed Duckit archives, native verified backups, retention union, separate restore candidates and failure-boundary tests                    |

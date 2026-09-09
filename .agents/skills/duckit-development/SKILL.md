@@ -36,3 +36,11 @@ Run `npm run check` and focused Electron tests. Ship the committed
 [runtime manifest](../../../resources/runtime-manifest.json). Use
 [read-only diagnostics](../../../docs/diagnostics.md) when inspecting a selected
 development or synthetic test root.
+
+Keep UI preferences in renderer-local storage, outside financial snapshots and
+sync. `App` owns session budget navigation and the single memoized working-balance
+map shared by sidebar and register. Reuse the existing exact-money register helper;
+do not scan the ledger separately for every account or while dragging the sidebar.
+Use the local-date hook for quiet midnight/foreground refreshes. Month-only inputs
+use the shared portaled chooser; preserve day-date semantics in transaction forms.
+See [architecture](../../../docs/architecture.md) for preference and cutoff rules.

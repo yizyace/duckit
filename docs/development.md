@@ -2,9 +2,10 @@
 
 Duckit is for personal local use. The owner has explicitly excluded VoiceOver
 testing and accessibility work from this project. Do not add accessibility audits,
-remediation tasks or acceptance gates. Signing, notarization and publication are
-also outside the intended scope. Focus verification on requested functionality,
-local data reliability and CI regressions.
+remediation tasks or acceptance gates. Signing and notarization are outside the
+intended scope. Publish a GitHub release only when explicitly requested; unsigned
+local builds do not require publication. Focus verification on requested
+functionality, local data reliability and CI regressions.
 
 1. Read `CONSTITUTION.md`, [architecture](architecture.md), and [capability status](capabilities.md).
 2. Inspect the working tree before editing. Other contributors may be active.
@@ -13,6 +14,12 @@ local data reliability and CI regressions.
 5. Run focused tests, `npm run check`, and relevant Electron interaction tests.
 6. Every implementation slice needs independent review and recorded QA before closure.
 7. Commit atomic Conventional Commits; push only reviewed, passing batches.
+
+For renderer ergonomics, inspect synthetic light/dark screenshots at the native
+window minimum (960×640) and default (1440×940), plus the stacked layout when
+changing responsive behavior. Include long account names, large exact amounts,
+open dialogs and horizontally scrolled tables. Keep UI preferences local; see
+[architecture](architecture.md) for balance and navigation state ownership.
 
 Electron downloads its executable on first use. `npm run dev`, `npm run demo`, and
 `npm start` first run the package's local `install-electron` command, which downloads

@@ -43,3 +43,28 @@ Use the [evidence handoff conventions](../../../docs/agent-work.md#keep-a-review
 to identify the tested revision, artifact and execution architecture. Record local,
 live CI and packaged results separately; a newly written workflow is still awaiting
 run evidence.
+
+Renderer navigation QA includes full account names and exact positive, negative,
+zero and large working balances; future/scheduled exclusions, transfers, historical
+edits, undo/redo and local date rollover. Exercise the sidebar at its minimum,
+default, maximum and viewport cap, then reload and switch through the stacked
+layout to check preference retention. Confirm resizing does not rescan the ledger.
+
+Month chooser QA includes year edits and arrows, December/January transitions,
+years 0001 and 9999, cancellation, one–three visible months, session view switching
+and fresh-launch behavior. Reports retain reversed-range and 600-month validation.
+Inspect light/dark synthetic screenshots at 960×640 and 1440×940 with open popovers,
+dialogs and horizontally scrolled tables. Verify dialog actions remain reachable
+by scrolling, and use a large synthetic ledger for responsiveness checks.
+
+After `npm run build`, run these interactions and pure preference/balance checks:
+
+```sh
+npx playwright test tests/e2e/sidebar.spec.ts tests/e2e/month-navigation.spec.ts tests/e2e/budget.spec.ts
+npx vitest run tests/sidebar.test.ts tests/budget-navigation.test.ts tests/renderer-model.test.ts
+```
+
+Use a distinct Playwright `--output=/tmp/duckit-<task>-qa` directory for concurrent
+agents' sequential UI runs so one run cannot erase another's screenshots. The
+20,000-entry sidebar test isolates renderer work using synthetic read-only IPC;
+it does not measure database throughput.
