@@ -22,10 +22,13 @@ import type { Account, Budget, Status } from '../../shared/contracts'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/lib/theme'
+import { useSidebarWidth } from '@/lib/sidebar-width'
+import { money, type AccountTotal } from './views/register-model'
 import './styles.css'
 
 export type ShellProps = {
   budget: Budget | null
+  balances: Map<string, AccountTotal>
   status: Status
   view: string
   setView: (view: string) => void
@@ -98,8 +101,9 @@ function SaveStatus({ status }: { status: Status }) {
   )
 }
 
-export function Shell({ budget, status, view, setView, children, actions }: ShellProps) {
+export function Shell({ budget, balances, status, view, setView, children, actions }: ShellProps) {
   const { resolvedTheme, setTheme } = useTheme()
+  const { shellRef, dividerRef } = useSidebarWidth()
   const heading = useRef<HTMLHeadingElement>(null)
   const previousView = useRef(view)
   // Onboarding renders the welcome form whatever `view` says, so nothing may navigate.
@@ -151,6 +155,7 @@ export function Shell({ budget, status, view, setView, children, actions }: Shel
 
   const accountButton = (account: Account) => {
     const Icon = accountIcons[account.type]
+    const balance = balances.get(account.id)?.balance ?? 0n
     return (
       <li key={account.id}>
         <button
@@ -159,9 +164,21 @@ export function Shell({ budget, status, view, setView, children, actions }: Shel
           aria-current={view === `account:${account.id}` ? 'page' : undefined}
           onClick={() => setView(`account:${account.id}`)}
           title={account.name}
+          data-account-id={account.id}
         >
           <Icon aria-hidden="true" />
-          <span>{account.name}</span>
+          <span className="account-label">
+            <span className="account-name">{account.name}</span>
+            <span
+              className={cn(
+                'account-balance',
+                balance < 0n && 'is-negative',
+                balance === 0n && 'is-zero',
+              )}
+            >
+              {money(balance, budget!.currency)}
+            </span>
+          </span>
         </button>
       </li>
     )
@@ -172,7 +189,7 @@ export function Shell({ budget, status, view, setView, children, actions }: Shel
   const closed = budget?.accounts.filter((account) => account.closed) ?? []
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" ref={shellRef}>
       <a className="skip-link" href="#main-content">
         Skip to budget content
       </a>
@@ -265,6 +282,16 @@ export function Shell({ budget, status, view, setView, children, actions }: Shel
           </button>
           <SaveStatus status={status} />
         </div>
+        <div
+          ref={dividerRef}
+          className="sidebar-divider"
+          role="separator"
+          aria-label="Resize sidebar"
+          aria-orientation="vertical"
+          aria-valuemin={240}
+          tabIndex={0}
+          title="Drag to resize. Double-click to reset."
+        />
       </aside>
 
       <div className="workspace">

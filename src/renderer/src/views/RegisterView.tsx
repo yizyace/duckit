@@ -21,8 +21,8 @@ import { TransactionEditor } from './TransactionEditor'
 import { ScheduleView } from './ScheduleView'
 import {
   prepareRegister,
-  registerBalances,
   selectRegisterRows,
+  type AccountTotal,
   type RegisterRow,
   type RegisterSort,
 } from './register-model'
@@ -353,6 +353,7 @@ function Reconcile({
 
 export type RegisterViewProps = {
   budget: Budget
+  balances: Map<string, AccountTotal>
   accountId?: string | undefined
   onCommand: CommandHandler
   onImportStatement: (accountId: string) => void
@@ -360,6 +361,7 @@ export type RegisterViewProps = {
 
 export function RegisterView({
   budget,
+  balances,
   accountId,
   onCommand,
   onImportStatement,
@@ -537,15 +539,13 @@ export function RegisterView({
     overscan: 8,
   })
   const items = virtualizer.getVirtualItems()
-  const through = today()
-  const totals = useMemo(() => registerBalances(budget, through), [budget, through])
   const filteredAccounts = currentAccount ? [currentAccount] : budget.accounts
   const balance = filteredAccounts.reduce(
-    (sum, account) => sum + totals.get(account.id)!.balance,
+    (sum, account) => sum + balances.get(account.id)!.balance,
     0n,
   )
   const clearedBalance = filteredAccounts.reduce(
-    (sum, account) => sum + totals.get(account.id)!.cleared,
+    (sum, account) => sum + balances.get(account.id)!.cleared,
     0n,
   )
 

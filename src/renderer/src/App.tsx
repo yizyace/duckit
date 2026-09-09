@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Redo2, Undo2 } from 'lucide-react'
 import type { AppState, Change, ImportPreview } from '../../shared/contracts'
@@ -11,6 +11,8 @@ import { RegisterView } from './views/RegisterView'
 import { ReportsView } from './views/ReportsView'
 import { SettingsView, WelcomeView } from './views/SettingsView'
 import { ImportDialog } from './views/ImportDialog'
+import { registerBalances, type AccountTotal } from './views/register-model'
+import { useLocalToday } from './lib/local-date'
 import './views/settings.css'
 export function App() {
   const client = useQueryClient()
@@ -24,6 +26,12 @@ export function App() {
     [working, setWorking] = useState(false)
   const [preview, setPreview] = useState<{ value: ImportPreview; revision: number | null } | null>(
     null,
+  )
+  const budget = state.data?.budget ?? null
+  const through = useLocalToday()
+  const balances = useMemo(
+    () => (budget ? registerBalances(budget, through) : new Map<string, AccountTotal>()),
+    [budget?.accounts, budget?.transactions, through],
   )
   const accept = useCallback((next: AppState) => acceptState(client, next), [client])
   useEffect(
@@ -106,11 +114,11 @@ export function App() {
         <Button onClick={() => void state.refetch()}>Try again</Button>
       </main>
     )
-  const current = state.data,
-    budget = current.budget
+  const current = state.data
   return (
     <Shell
       budget={budget}
+      balances={balances}
       status={current.status}
       view={view}
       setView={setView}
@@ -173,6 +181,7 @@ export function App() {
       ) : view === 'accounts' || view.startsWith('account:') ? (
         <RegisterView
           budget={budget}
+          balances={balances}
           accountId={view.startsWith('account:') ? view.slice(8) : undefined}
           onCommand={onCommand}
           onImportStatement={(accountId) => importBudget('statement', accountId)}
