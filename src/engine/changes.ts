@@ -10,6 +10,7 @@ import { addMonths, nextOccurrence } from './calendar'
 import { accountBalance } from './calculator'
 import { assertValidBudget } from './validation'
 import { transferLegs } from './transfers'
+import { accountSection, orderedAccounts } from './account-order'
 
 function upsert<T extends { id: string }>(rows: T[], value: T): void {
   const index = rows.findIndex((row) => row.id === value.id)
@@ -109,10 +110,38 @@ export function applyChanges(
   const parsedChanges = changes.map((change) => changeSchema.parse(change))
   for (const [index, change] of parsedChanges.entries()) {
     switch (change.type) {
-      case 'account.put':
-        upsert(budget.accounts, change.value)
-        revive('account', change.value.id)
+      case 'account.put': {
+        const previous = budget.accounts.find((account) => account.id === change.value.id)
+        const value = { ...change.value }
+        if (budget.schemaVersion === 2 && value.position === undefined) {
+          value.position =
+            previous?.position ??
+            budget.accounts.reduce((max, account) => Math.max(max, account.position ?? -1), -1) + 1
+        }
+        upsert(budget.accounts, value)
+        revive('account', value.id)
         break
+      }
+      case 'account.reorder': {
+        const selected = new Set(change.accountIds)
+        const first = budget.accounts.find((account) => account.id === change.accountIds[0])
+        if (budget.schemaVersion !== 2)
+          throw new Error('Upgrade this budget before reordering accounts')
+        if (!first || selected.size !== change.accountIds.length)
+          throw new Error('Account order must contain unique existing accounts')
+        const section = budget.accounts.filter(
+          (account) => accountSection(account) === accountSection(first),
+        )
+        if (
+          section.length !== selected.size ||
+          section.some((account) => !selected.has(account.id))
+        )
+          throw new Error('Reorder all accounts within the same sidebar section')
+        const positions = new Map(change.accountIds.map((id, position) => [id, position]))
+        for (const account of section) account.position = positions.get(account.id)!
+        budget.accounts = orderedAccounts(budget.accounts)
+        break
+      }
       case 'category.put':
         upsert(budget.categories, change.value)
         revive('category', change.value.id)

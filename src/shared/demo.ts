@@ -1,4 +1,4 @@
-import { type Budget } from './contracts'
+import { SCHEMA_VERSION, type Budget } from './contracts'
 export function emptyBudget(
   id: string,
   name: string,
@@ -6,7 +6,7 @@ export function emptyBudget(
   startMonth = '2026-09',
 ): Budget {
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     id,
     name,
     currency,
@@ -30,6 +30,7 @@ export function demoBudget(): Budget {
   b.accounts = [
     {
       id: 'checking',
+      position: 0,
       name: 'Checking',
       type: 'checking',
       onBudget: true,
@@ -39,6 +40,7 @@ export function demoBudget(): Budget {
     },
     {
       id: 'savings',
+      position: 1,
       name: 'Savings',
       type: 'savings',
       onBudget: true,

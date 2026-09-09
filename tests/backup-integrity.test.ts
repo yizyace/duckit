@@ -8,6 +8,10 @@ import { Workspace } from '../src/main/storage/workspace'
 import { Database } from '../src/main/storage/database'
 import { splitBudget } from './helpers/split-budget'
 
+// This fault-injected suite tests checksum compatibility only. Candidate schema
+// upgrades execute against real Dolt in account-order-storage.test.ts.
+vi.mock('../src/main/storage/migration', () => ({ migrateCandidate: vi.fn(async () => false) }))
+
 vi.mock('../src/main/storage/runtime', async (original) => ({
   ...(await original<typeof import('../src/main/storage/runtime')>()),
   runDolt: vi.fn(async (_runtime, _cwd, args: string[]) => {
@@ -28,8 +32,14 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
-function boundary() {
+function boundary(legacy = false) {
   const budget = splitBudget()
+  if (legacy) {
+    budget.schemaVersion = 1
+    budget.accounts.forEach((account) => {
+      delete account.position
+    })
+  }
   const workspace = new Workspace(root, {
     directory: 'mock-native-unused',
     stateRoot: join(root, 'runtime'),
@@ -73,7 +83,7 @@ it.each(['posted', 'scheduled'] as const)(
 it.each([undefined, 1])(
   'retains legacy backup restorability for checksum version %s without claiming split-order protection',
   async (version) => {
-    const { budget, workspace, active, faults, backups } = boundary()
+    const { budget, workspace, active, faults, backups } = boundary(true)
     const snapshot = (await backups.snapshot())!
     const metadataPath = join(backups.destination, snapshot.id, 'metadata.json')
     const metadata = JSON.parse(await readFile(metadataPath, 'utf8')) as Record<string, unknown>

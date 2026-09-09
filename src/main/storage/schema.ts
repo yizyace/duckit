@@ -33,6 +33,7 @@ export const tables: Table[] = [
       bool('closed'),
       text('note'),
       id('legacyId'),
+      num('position'),
     ],
   },
   {
@@ -118,6 +119,15 @@ export const tables: Table[] = [
   },
   { name: 'tombstones', key: ['kind', 'id'], columns: [id('kind'), id('id'), text('revision')] },
 ]
+export function tablesForVersion(version: 1 | 2): Table[] {
+  return version === 2
+    ? tables
+    : tables.map((table) =>
+        table.name === 'accounts'
+          ? { ...table, columns: table.columns.filter((column) => column.name !== 'position') }
+          : table,
+      )
+}
 export const schemaSQL =
   tables
     .map(
@@ -149,7 +159,7 @@ export function normalize(b: Budget): Record<string, Row[]> {
   return {
     budget_meta: [meta],
     budget_months: months ?? [],
-    accounts,
+    accounts: accounts.map((account) => ({ ...account, position: account.position ?? null })),
     category_groups: groups,
     categories,
     payees,
@@ -186,7 +196,9 @@ export function denormalize(rows: Record<string, Row[]>): unknown {
   return {
     ...rows.budget_meta?.[0],
     months: rows.budget_months ?? [],
-    accounts: rows.accounts,
+    accounts: rows.accounts?.map(({ position, ...account }) =>
+      position == null ? account : { ...account, position },
+    ),
     groups: rows.category_groups,
     categories: rows.categories,
     payees: rows.payees,

@@ -16,7 +16,7 @@ export function exportArchive(budget: Budget): Uint8Array {
   const manifest = {
     format: 'duckit',
     version: 1,
-    schemaVersion: 1,
+    schemaVersion: normalized.schemaVersion,
     currency: normalized.currency,
     checksums: { 'budget.json': digest(data) },
   }
@@ -43,12 +43,18 @@ export function importArchive(bytes: Uint8Array): Budget {
   if (count !== 2 || !files['manifest.json'] || !files['budget.json'])
     throw new Error('Archive is incomplete')
   const manifest = JSON.parse(strFromU8(files['manifest.json'])) as Record<string, unknown>
-  if (manifest.format !== 'duckit' || manifest.version !== 1 || manifest.schemaVersion !== 1)
+  if (
+    manifest.format !== 'duckit' ||
+    manifest.version !== 1 ||
+    (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2)
+  )
     throw new Error('Unsupported Duckit archive version')
   const sums = manifest.checksums as Record<string, unknown> | undefined
   if (sums?.['budget.json'] !== digest(files['budget.json']))
     throw new Error('Archive checksum does not match')
   const budget = budgetSchema.parse(JSON.parse(strFromU8(files['budget.json'])))
+  if (budget.schemaVersion !== manifest.schemaVersion)
+    throw new Error('Archive schema metadata does not match')
   if (budget.currency !== manifest.currency)
     throw new Error('Archive currency metadata does not match')
   assertValidBudget(budget)

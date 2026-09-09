@@ -38,6 +38,11 @@ export class BudgetService {
   }
   async initialize(): Promise<void> {
     await this.workspace.initialize()
+    if (this.workspace.database && !this.workspace.activationDurable)
+      this.publish({
+        message:
+          'Budget upgraded. Folder durability could not be confirmed; keep Duckit open and check your disk.',
+      })
     try {
       const settings = z
         .object({ backupDestination: z.string().min(1) })

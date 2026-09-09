@@ -3,8 +3,9 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { assertValidBudget } from '../../engine'
-import { type Budget } from '../../shared/contracts'
+import { SCHEMA_VERSION, type Budget } from '../../shared/contracts'
 import { Database } from './database'
+import { migrateActiveDatabase, migrateCandidate, upgradeBudget } from './migration'
 import { atomicWrite } from './atomic-file'
 import { prepareRuntime, type Runtime } from './runtime'
 const pointerSchema = z.object({ database: z.string().uuid() })
@@ -28,8 +29,13 @@ export class Workspace {
     }
     const pointer = pointerSchema.parse(JSON.parse(data))
     const database = new Database(join(this.root, 'budgets', pointer.database), this.runtime)
-    assertValidBudget(await database.read())
-    this.database = database
+    const budget = await database.read()
+    assertValidBudget(budget)
+    if (budget.schemaVersion !== SCHEMA_VERSION) {
+      await this.activate(await migrateActiveDatabase(database, this.root))
+    } else {
+      this.database = database
+    }
   }
   serial<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.tail.then(operation, operation)
@@ -40,6 +46,7 @@ export class Workspace {
     await this.tail
   }
   async candidate(budget: Budget): Promise<Database> {
+    budget = upgradeBudget(budget)
     assertValidBudget(budget)
     const candidate = new Database(join(this.root, 'budgets', randomUUID()), this.runtime)
     await candidate.init(budget)
@@ -51,7 +58,14 @@ export class Workspace {
     pointerSchema.parse({ database: id })
     if (candidate.directory !== join(this.root, 'budgets', id))
       throw new Error('Candidate is not part of this workspace')
-    assertValidBudget(await candidate.read())
+    let budget = await candidate.read()
+    if (budget.schemaVersion !== SCHEMA_VERSION) {
+      if (this.database?.directory === candidate.directory)
+        throw new Error('Migrate an isolated candidate before activation')
+      await migrateCandidate(candidate, this.root)
+      budget = await candidate.read()
+    }
+    assertValidBudget(budget)
     this.activationDurable = await atomicWrite(
       join(this.root, 'active.json'),
       JSON.stringify({ database: id }),

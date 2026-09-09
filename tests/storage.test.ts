@@ -67,7 +67,7 @@ describe('normalized Dolt persistence', () => {
       expect((await db.read()).accounts.find((a) => a.id === 'checking')!.name).toBe('Renamed')
       await db.checkpoint()
       const supported = await db.read()
-      await db.sql('UPDATE budget_meta SET schemaVersion=2;')
+      await db.sql('UPDATE budget_meta SET schemaVersion=3;')
       await expect(db.read()).rejects.toThrow('different Duckit version')
       await expect(
         db.save(
@@ -76,7 +76,7 @@ describe('normalized Dolt persistence', () => {
           { id: randomUUID(), expectedRevision: supported.revision, changes: [{ type: 'undo' }] },
         ),
       ).rejects.toThrow()
-      expect((await db.query('SELECT schemaVersion FROM budget_meta;'))[0]!.schemaVersion).toBe(2)
+      expect((await db.query('SELECT schemaVersion FROM budget_meta;'))[0]!.schemaVersion).toBe(3)
     } finally {
       await rm(root, { recursive: true, force: true })
     }

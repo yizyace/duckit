@@ -7,6 +7,7 @@ import { assertValidBudget } from '../../engine'
 import type { BackupInfo } from '../../shared/contracts'
 import { canonicalBudget } from '../storage/canonical-budget'
 import { Database } from '../storage/database'
+import { migrateCandidate } from '../storage/migration'
 import { Workspace } from '../storage/workspace'
 import { atomicWrite } from '../storage/atomic-file'
 import { runDolt } from '../storage/runtime'
@@ -147,12 +148,16 @@ export class Backups {
         pathToFileURL(join(this.destination, id, 'snapshot')).href,
         basename(candidate.directory),
       ])
-      const restored = await candidate.read()
+      let restored = await candidate.read()
       assertValidBudget(restored)
       const encoded =
         metadata.checksumVersion === 2 ? canonicalBudget(restored) : legacyStableBudget(restored)
       if (digest(encoded) !== metadata.checksum)
         throw new Error('Backup contents failed validation')
+      if (restored.schemaVersion === 1) {
+        await migrateCandidate(candidate, this.workspace.root)
+        restored = await candidate.read()
+      }
       // Preserve history in the restored database, but retire local command history from the older snapshot.
       // Revisions increase so an already-open form cannot accidentally target the restored state.
       const after = { ...restored, revision: Math.max(before.revision, restored.revision) + 1 }

@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { assertValidBudget } from '../../engine'
 import type { Budget, Conflict, Status } from '../../shared/contracts'
 import { canonicalBudget } from '../storage/canonical-budget'
+import { migrateCandidate } from '../storage/migration'
 import { Database } from '../storage/database'
 import { Workspace } from '../storage/workspace'
 import { atomicWrite } from '../storage/atomic-file'
@@ -408,12 +409,14 @@ export class SyncManager {
         budgetId: budget?.id ?? '',
         ref: this.options.ref ?? 'refs/dolt/data',
       }
-      const remoteHash = await this.remoteGitHash(binding, token)
+      let remoteHash = await this.remoteGitHash(binding, token)
       if (!active) {
         if (!remoteHash)
           throw new Error('Create or import a budget before connecting an empty repository')
         const candidate = await this.clone(binding, token)
         binding.budgetId = (await this.validated(candidate)).id
+        if (await migrateCandidate(candidate, this.workspace.root))
+          remoteHash = await this.push(candidate, binding, token, remoteHash)
         await this.backup(this.io.signal)
         this.io.assertRunning()
         await this.activate(candidate)
@@ -516,14 +519,20 @@ export class SyncManager {
       await rm(candidate.directory, { recursive: true, force: true, maxRetries: 3 })
     } else if (ancestor === localHash) {
       await this.io.dolt(['merge', '--ff-only', remoteHash], candidate.directory, token)
-      const incoming = await this.validated(candidate, binding.budgetId)
+      let incoming = await this.validated(candidate, binding.budgetId)
+      const migrated =
+        incoming.schemaVersion === 1 && (await migrateCandidate(candidate, this.workspace.root))
+      if (migrated) incoming = await this.validated(candidate, binding.budgetId)
+      let bumped = false
       if (
         incoming.revision <= local.revision &&
         canonicalBudget(incoming) !== canonicalBudget(local)
       ) {
         await this.bump(candidate, incoming, local.revision)
-        remoteGitHash = await this.push(candidate, binding, token, remoteGitHash)
+        bumped = true
       }
+      if (migrated || bumped)
+        remoteGitHash = await this.push(candidate, binding, token, remoteGitHash)
       await this.backup(this.io.signal)
       await this.localUnchanged(localHash)
       await this.activate(candidate)
@@ -652,6 +661,7 @@ export class SyncManager {
         .sort()
       if (JSON.stringify(parents) !== JSON.stringify([localRevision, remoteRevision].sort()))
         throw new Error('Conflict integration failed to preserve both histories')
+      await migrateCandidate(candidate, this.workspace.root)
       await this.validated(candidate, binding.budgetId)
       await this.backup(this.io.signal)
       await this.localUnchanged(localRevision)

@@ -396,6 +396,35 @@ describe('native private-budget synchronization', () => {
     expect(await readdir(budgets)).toHaveLength(1)
   }, 120000)
 
+  it('upgrades legacy remote history before activation and synchronizes saved account positions', async () => {
+    const f = await fixture()
+    const a = await f.workspace('legacy', true)
+    await a.ws.database!.sql(
+      'ALTER TABLE accounts DROP COLUMN position; UPDATE budget_meta SET schemaVersion=1;',
+    )
+    await a.ws.database!.checkpoint('Synthetic legacy remote')
+    await a.sync.connect('synthetic/budget')
+    const b = await f.workspace('current')
+    await b.sync.connect('synthetic/budget')
+    expect((await b.ws.database!.read()).schemaVersion).toBe(2)
+    expect((await b.ws.database!.read()).accounts.map((account) => account.position)).toEqual([
+      0, 1,
+    ])
+    await a.sync.sync()
+    expect((await a.ws.database!.read()).schemaVersion).toBe(2)
+    await change(b.ws, [{ type: 'account.reorder', accountIds: ['savings', 'checking'] }])
+    await b.sync.sync()
+    await a.sync.sync()
+    const accounts = (await a.ws.database!.read()).accounts
+    expect(accounts.find((account) => account.id === 'savings')!.position).toBe(0)
+    expect(accounts.find((account) => account.id === 'checking')!.position).toBe(1)
+    const c = await f.workspace('fresh')
+    await c.sync.connect('synthetic/budget')
+    expect((await c.ws.database!.read()).accounts.map((account) => account.position)).toEqual(
+      accounts.map((account) => account.position),
+    )
+  }, 180000)
+
   it('refuses unrelated budgets and unsupported remote schemas without activating them', async () => {
     const f = await fixture(),
       a = await f.workspace('a', true),
@@ -410,11 +439,11 @@ describe('native private-budget synchronization', () => {
     await expect(unrelated.sync.connect('synthetic/budget')).rejects.toThrow('different budget')
     expect(await f.gitHash()).toBe(remote)
     const active = a.ws.database!.directory
-    await b.ws.database!.sql('UPDATE budget_meta SET schemaVersion=2;')
+    await b.ws.database!.sql('UPDATE budget_meta SET schemaVersion=3;')
     await b.ws.database!.checkpoint('Synthetic unsupported schema')
     await f.io.dolt(['push', 'origin', 'main'], b.ws.database!.directory, 'synthetic-token')
     await expect(a.sync.sync()).rejects.toThrow('different Duckit version')
     expect(a.ws.database!.directory).toBe(active)
-    expect((await a.ws.database!.read()).schemaVersion).toBe(1)
+    expect((await a.ws.database!.read()).schemaVersion).toBe(2)
   }, 120000)
 })

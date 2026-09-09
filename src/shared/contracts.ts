@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const SCHEMA_VERSION = 1 as const
+export const SCHEMA_VERSION = 2 as const
 export const minorSchema = z
   .string()
   .regex(/^(0|-?[1-9]\d*)$/)
@@ -33,6 +33,7 @@ export const dateSchema = z
   }, 'Invalid calendar date')
 export const accountSchema = z.object({
   id: idSchema,
+  position: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
   name: z.string().min(1).max(300),
   type: z.enum(['checking', 'savings', 'cash', 'credit', 'asset', 'liability']),
   onBudget: z.boolean(),
@@ -112,7 +113,7 @@ export const provenanceSchema = z.object({
 })
 export const tombstoneSchema = z.object({ kind: z.string(), id: idSchema, revision: z.string() })
 export const budgetSchema = z.object({
-  schemaVersion: z.literal(SCHEMA_VERSION),
+  schemaVersion: z.union([z.literal(1), z.literal(SCHEMA_VERSION)]),
   id: idSchema,
   name: z.string().min(1).max(300),
   currency: z.string().regex(/^[A-Z]{3}$/),
@@ -144,6 +145,7 @@ export type Reconciliation = z.infer<typeof reconciliationSchema>
 
 export const changeSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('account.put'), value: accountSchema }),
+  z.object({ type: z.literal('account.reorder'), accountIds: z.array(idSchema).min(1).max(10000) }),
   z.object({ type: z.literal('category.put'), value: categorySchema }),
   z.object({ type: z.literal('group.put'), value: groupSchema }),
   z.object({ type: z.literal('payee.put'), value: payeeSchema }),
