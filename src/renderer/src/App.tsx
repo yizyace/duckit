@@ -126,7 +126,11 @@ export function App() {
     <Shell
       budget={budget}
       balances={balances}
+      working={working}
       activity={activity}
+      onReorder={(accountIds, revision) =>
+        void run(() => onCommand([{ type: 'account.reorder', accountIds }], revision))
+      }
       status={current.status}
       view={view}
       setView={setView}

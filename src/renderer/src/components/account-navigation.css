@@ -1,0 +1,48 @@
+.account-row {
+  position: relative;
+}
+.account-link[draggable='true'] {
+  cursor: grab;
+}
+.account-link[draggable='true']:active {
+  cursor: grabbing;
+}
+.account-row.is-dragging {
+  opacity: 0.45;
+}
+.account-row.drop-before::before,
+.account-row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  background: var(--primary);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 1;
+}
+.account-row.drop-before::before {
+  top: -1px;
+}
+.account-row.drop-after::after {
+  bottom: -1px;
+}
+.account-icon {
+  position: relative;
+  width: 15px;
+  height: 17px;
+}
+.account-icon svg {
+  position: absolute;
+  inset: 0;
+}
+.account-icon .account-grip {
+  opacity: 0;
+}
+.account-link[draggable='true']:hover .account-icon > svg:first-child {
+  opacity: 0;
+}
+.account-link[draggable='true']:hover .account-grip {
+  opacity: 1;
+}

@@ -3,25 +3,21 @@ import {
   ArrowDownUp,
   Bird,
   ChartNoAxesCombined,
-  ChevronDown,
-  CreditCard,
-  Landmark,
   LayoutGrid,
   Moon,
   Settings,
   Sun,
-  Wallet,
-  type LucideIcon,
 } from 'lucide-react'
-import type { Account, Budget, Status } from '../../shared/contracts'
+import type { Budget, Status } from '../../shared/contracts'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/lib/theme'
 import { useSidebarWidth } from '@/lib/sidebar-width'
-import { money, type AccountTotal } from './views/register-model'
+import { type AccountTotal } from './views/register-model'
 import './styles.css'
 import { ActivityIndicator, SaveStatus } from './components/SaveStatus'
 import type { ActivityFeedback } from './lib/activity-feedback'
+import { AccountNavigation } from './components/AccountNavigation'
 
 export type ShellProps = {
   budget: Budget | null
@@ -31,6 +27,8 @@ export type ShellProps = {
   setView: (view: string) => void
   children: ReactNode
   activity: ActivityFeedback
+  working: boolean
+  onReorder: (accountIds: string[], revision: number) => void
   actions?: ReactNode
 }
 
@@ -42,15 +40,6 @@ const navigation = [
 
 const navLink = 'nav-link disabled:pointer-events-none disabled:opacity-50'
 
-const accountIcons: Record<Account['type'], LucideIcon> = {
-  checking: Landmark,
-  savings: Landmark,
-  cash: Wallet,
-  credit: CreditCard,
-  asset: Wallet,
-  liability: CreditCard,
-}
-
 export function Shell({
   budget,
   balances,
@@ -59,7 +48,9 @@ export function Shell({
   setView,
   children,
   actions,
+  working,
   activity,
+  onReorder,
 }: ShellProps) {
   const { resolvedTheme, setTheme } = useTheme()
   const { shellRef, dividerRef } = useSidebarWidth()
@@ -112,41 +103,6 @@ export function Shell({
     document.title = `${title} · Duckit`
   }, [title])
 
-  const accountButton = (account: Account) => {
-    const Icon = accountIcons[account.type]
-    const balance = balances.get(account.id)?.balance ?? 0n
-    return (
-      <li key={account.id}>
-        <button
-          type="button"
-          className={cn('account-link', view === `account:${account.id}` && 'is-active')}
-          aria-current={view === `account:${account.id}` ? 'page' : undefined}
-          onClick={() => setView(`account:${account.id}`)}
-          title={account.name}
-          data-account-id={account.id}
-        >
-          <Icon aria-hidden="true" />
-          <span className="account-label">
-            <span className="account-name">{account.name}</span>
-            <span
-              className={cn(
-                'account-balance',
-                balance < 0n && 'is-negative',
-                balance === 0n && 'is-zero',
-              )}
-            >
-              {money(balance, budget!.currency)}
-            </span>
-          </span>
-        </button>
-      </li>
-    )
-  }
-
-  const onBudget = budget?.accounts.filter((account) => !account.closed && account.onBudget) ?? []
-  const tracking = budget?.accounts.filter((account) => !account.closed && !account.onBudget) ?? []
-  const closed = budget?.accounts.filter((account) => account.closed) ?? []
-
   return (
     <div className="app-shell" ref={shellRef}>
       <a className="skip-link" href="#main-content">
@@ -194,38 +150,14 @@ export function Shell({
             ))}
           </ul>
 
-          <div className="account-navigation">
-            <p className="sidebar-section-title">
-              Budget accounts <span>{onBudget.length}</span>
-            </p>
-            {onBudget.length ? (
-              <ul aria-label="Budget accounts">{onBudget.map(accountButton)}</ul>
-            ) : (
-              <p className="sidebar-hint">
-                {budget
-                  ? 'Add an account in All accounts.'
-                  : 'Create or import a budget to add accounts.'}
-              </p>
-            )}
-
-            {tracking.length > 0 && (
-              <>
-                <p className="sidebar-section-title">
-                  Tracking <span>{tracking.length}</span>
-                </p>
-                <ul aria-label="Tracking accounts">{tracking.map(accountButton)}</ul>
-              </>
-            )}
-            {closed.length > 0 && (
-              <details className="closed-accounts">
-                <summary className="sidebar-section-title">
-                  <ChevronDown aria-hidden="true" />
-                  Closed accounts <span>{closed.length}</span>
-                </summary>
-                <ul>{closed.map(accountButton)}</ul>
-              </details>
-            )}
-          </div>
+          <AccountNavigation
+            budget={budget}
+            balances={balances}
+            view={view}
+            setView={setView}
+            disabled={working}
+            onReorder={onReorder}
+          />
         </nav>
 
         <div className="sidebar-footer">
