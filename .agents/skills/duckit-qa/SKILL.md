@@ -68,3 +68,17 @@ Use a distinct Playwright `--output=/tmp/duckit-<task>-qa` directory for concurr
 agents' sequential UI runs so one run cannot erase another's screenshots. The
 20,000-entry sidebar test isolates renderer work using synthetic read-only IPC;
 it does not measure database throughput.
+
+Account-order QA covers upward/downward drops, rejected cross-section drops,
+selection retention, failed/stale saves, undo/redo and reopening after clearing local
+preferences. Verify explicit positions in native storage, archives, backups and a
+fresh sync clone; legacy migration must preserve its source and checksum evidence.
+Activity QA observes real save events plus synthetic fast sync/refresh outcomes;
+completion cues must survive batched events and errors must remain truthful.
+Report QA covers series toggles, exact hovered/selected values, negative net worth,
+refunds, category drilldown, presets and all months in long scrollable ranges.
+
+```sh
+npx vitest run tests/account-order.test.ts tests/account-order-storage.test.ts tests/activity-feedback.test.ts tests/report-model.test.ts
+npx playwright test tests/e2e/account-order.spec.ts tests/e2e/activity-feedback.spec.ts tests/e2e/reports.spec.ts
+```

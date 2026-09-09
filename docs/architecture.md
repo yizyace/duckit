@@ -49,6 +49,13 @@ views. Form drafts stay in component state; stale failures refresh the snapshot
 while preserving entered values for explicit review. Components reuse the pure
 engine for calculations and validation. Main remains authoritative for writes.
 
+Account order is budget data: schema 2 stores each account's numeric `position`.
+The sidebar sorts by this field within Budget, Tracking and Closed sections.
+`account.reorder` validates a complete, unique list for one section and saves all
+positions as one revision-guarded, undoable command. A drag cannot change account
+type or move an account between sections. Renaming keeps its position; newly added
+accounts append. Failed or stale drops keep the last saved order visible.
+
 Renderer preferences stay outside `Budget` and the preload API. `App` retains the
 selected budget month for each budget during its session; a fresh launch starts
 at the local current month. The visible-month count is saved per budget in local
@@ -67,6 +74,15 @@ Sidebar width is a local renderer preference: 320 pixels by default, from 240 to
 displayed width without losing the preference; the stacked layout at 720 pixels
 and below disables the divider. Double-clicking the divider resets the preference.
 Category labels remain visible while the budget table scrolls horizontally.
+
+The header and sidebar expose real save/sync activity and a brief completion cue.
+Renderer query events and explicitly tracked settings reads show refresh activity;
+cache updates alone do not count as fetching. A background refresh failure retains
+the open budget and offers retry. Report charts reuse the exact report calculator:
+income/spending series, month-end net worth and signed category totals/drilldown.
+Date presets supplement the month chooser. Hover or month selection shows exact
+amounts; only bounded chart coordinates use floating-point numbers. Long report
+ranges retain every month in a horizontally scrollable plot.
 
 ## Local mutation and storage
 
@@ -100,9 +116,16 @@ test roots are isolated as described in the
 Main invokes the bundled Dolt CLI for SQL and history operations; it does not rely
 on a developer database server. [runtime.ts](../src/main/storage/runtime.ts) owns
 subprocess environments, bounded execution and private Dolt configuration.
-Unsupported schemas fail validation before writes or merges. New schema migration
-work must include a backup, candidate validation and safe activation; do not infer
-an automatic migration from the presence of a schema-version field.
+Unsupported schemas fail validation before writes or merges. The schema 1 reader
+omits account positions so existing archive and backup checksums remain valid.
+Opening schema 1 creates a verified native backup and upgrades a separate candidate,
+then atomically switches the active pointer. The original database remains intact. Migration backups use the application root
+backup folder, even when routine backups have a custom destination.
+Migration preserves Dolt ancestry, command receipts and undo history, assigns
+initial positions, and advances the application revision. Restore verifies the
+original checksum before upgrading; sync upgrades legacy candidates before upload
+and activation. Schema 2 prevents older clients from silently discarding positions.
+Future migrations must retain this backup, validation and activation discipline.
 
 ## Imports and recovery
 

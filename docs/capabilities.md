@@ -23,12 +23,13 @@ verification and are not included in those baseline installers.
 
 | Capability               | Verified behavior                                                                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Activity feedback        | Subtle ongoing save/sync/refresh indicators, brief completion cues and retained workspace on background refresh failure                          |
 | Desktop boundary         | Sandboxed Electron renderer, named validated IPC, isolated development/demo/test roots                                                           |
 | Exact-money engine       | Income timing, inherited negative carryover, Classic debt categories, splits/transfers, future allocations and historical recomputation          |
 | Persistence              | Normalized Dolt tables, entered split ordering, revision guards, retry receipts, undo/redo and durable writes before checkpoints                 |
 | Register                 | Account/payee entry, search, bulk edits, cleared/reconciled distinctions, mixed transfers and paired recurrence                                  |
-| Sidebar                  | Exact working balances through local today, full account labels and locally persisted resizing with viewport limits                              |
-| Budget and reports       | Session-retained month, local per-budget one–three-month count, portaled year/month chooser, sticky category labels and historical reports       |
+| Sidebar                  | Exact working balances, durable drag ordering with undo/redo, full labels and locally persisted resizing                                         |
+| Budget and reports       | Retained budget navigation, portaled month chooser, sticky labels and interactive income/spending, net worth and category graphs                 |
 | Legacy reconstruction    | Canonical generation, dominant full snapshot, causal incremental replay, preserved month identities and private independent oracle workflow      |
 | Bank statements          | CSV and OFX/QFX, declared encoding, exact amounts, account-scoped bank IDs, explicit uncertain matches and preview cancellation                  |
 | Archives and backups     | Checksummed Duckit archives, native verified backups, retention union, separate restore candidates and failure-boundary tests                    |

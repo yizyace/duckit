@@ -38,7 +38,10 @@ Run `npm run check` and focused Electron tests. Ship the committed
 development or synthetic test root.
 
 Keep UI preferences in renderer-local storage, outside financial snapshots and
-sync. `App` owns session budget navigation and the single memoized working-balance
+sync. Account positions are explicitly budget data: use `account.reorder` through
+the revision-guarded command path; preserve section membership and undo/redo.
+Legacy schemas upgrade through verified native copies, never active-database DDL.
+See [architecture](../../../docs/architecture.md) for migration and activity rules. `App` owns session budget navigation and the single memoized working-balance
 map shared by sidebar and register. Reuse the existing exact-money register helper;
 do not scan the ledger separately for every account or while dragging the sidebar.
 Use the local-date hook for quiet midnight/foreground refreshes. Month-only inputs
