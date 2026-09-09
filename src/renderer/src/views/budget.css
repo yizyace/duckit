@@ -8,8 +8,22 @@
 .budget-table {
   min-width: 680px;
 }
-.budget-table th:first-child {
+.budget-table .sticky-category {
+  position: sticky;
+  left: 0;
+  z-index: 2;
   min-width: 180px;
+  width: 180px;
+  max-width: 220px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  box-shadow: 1px 0 var(--border);
+}
+.budget-table thead .sticky-category {
+  background: var(--muted);
+}
+.budget-table .category-group td {
+  background: var(--secondary);
 }
 .budget-table .month-group {
   text-align: center;
@@ -94,9 +108,33 @@
   display: flex;
   gap: 6px;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
 }
-.month-navigation input {
-  width: 150px;
+.month-step-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.month-step-controls button {
+  min-height: 44px;
+}
+.month-count {
+  display: flex;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  background: var(--muted);
+}
+.budget-options {
+  flex-wrap: wrap;
+}
+.report-month-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 .check-label {
   display: flex;
@@ -127,6 +165,7 @@
   gap: 10px;
   min-height: 170px;
   padding: 20px 0;
+  overflow-x: auto;
 }
 .reports-bar {
   flex: 1;

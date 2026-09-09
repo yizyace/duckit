@@ -1,0 +1,48 @@
+.month-picker-trigger {
+  height: auto;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: normal;
+  text-align: left;
+}
+.month-picker-content {
+  z-index: 60;
+  width: 340px;
+  max-width: min(calc(100vw - 24px), var(--radix-popover-content-available-width));
+  max-height: var(--radix-popover-content-available-height);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 18%);
+}
+.month-picker-year {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: end;
+  gap: 12px;
+}
+.month-picker-year input {
+  text-align: center;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.month-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 16px;
+}
+.month-picker-grid button {
+  padding: 8px 4px;
+  font-size: 13px;
+}
+.month-picker-cancel {
+  width: 100%;
+  margin-top: 12px;
+}

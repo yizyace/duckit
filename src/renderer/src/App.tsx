@@ -13,6 +13,7 @@ import { SettingsView, WelcomeView } from './views/SettingsView'
 import { ImportDialog } from './views/ImportDialog'
 import { registerBalances, type AccountTotal } from './views/register-model'
 import { useLocalToday } from './lib/local-date'
+import { useBudgetNavigation } from './lib/budget-navigation'
 import './views/settings.css'
 export function App() {
   const client = useQueryClient()
@@ -28,6 +29,7 @@ export function App() {
     null,
   )
   const budget = state.data?.budget ?? null
+  const navigation = useBudgetNavigation(budget?.id ?? null)
   const through = useLocalToday()
   const balances = useMemo(
     () => (budget ? registerBalances(budget, through) : new Map<string, AccountTotal>()),
@@ -187,7 +189,7 @@ export function App() {
           onImportStatement={(accountId) => importBudget('statement', accountId)}
         />
       ) : (
-        <BudgetView budget={budget} onCommand={onCommand} />
+        <BudgetView budget={budget} onCommand={onCommand} {...navigation} />
       )}
       {preview && (
         <ImportDialog

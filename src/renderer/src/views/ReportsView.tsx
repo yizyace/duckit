@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { monthSchema, type Budget } from '../../../shared/contracts'
 import { addMonths, reports } from '../../../engine'
-import { Input, Label } from '@/components/ui/input'
+import { MonthPicker } from '@/components/ui/month-picker'
 import { currentMonth, money, monthLabel } from './format'
 import './budget.css'
 export function ReportsView({ budget }: { budget: Budget }) {
@@ -27,23 +27,15 @@ export function ReportsView({ budget }: { budget: Budget }) {
   const max = data.reduce((value, m) => (m.spending > value ? m.spending : value), 1n)
   return (
     <div className="page-stack">
-      <div className="toolbar">
-        <Label htmlFor="report-from">From</Label>
-        <Input
-          id="report-from"
-          type="month"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-          className="w-auto"
-        />
-        <Label htmlFor="report-to">Through</Label>
-        <Input
-          id="report-to"
-          type="month"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          className="w-auto"
-        />
+      <div className="toolbar report-months">
+        <div className="report-month-field">
+          <span className="stat-label">From</span>
+          <MonthPicker value={from} onChange={setFrom} label="From" />
+        </div>
+        <div className="report-month-field">
+          <span className="stat-label">Through</span>
+          <MonthPicker value={to} onChange={setTo} label="Through" />
+        </div>
       </div>
       {error && (
         <p role="alert" className="field-error">

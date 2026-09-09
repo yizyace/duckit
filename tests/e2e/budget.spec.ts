@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { chooseMonth } from './month-picker'
 test.setTimeout(120000)
 test('budgets across months, preserves stale category edits, and reviews historical reports', async ({}, info) => {
   const root = await mkdtemp(join(tmpdir(), 'duckit-budget-e2e-'))
@@ -14,7 +15,7 @@ test('budgets across months, preserves stale category edits, and reviews histori
     const page = await app.firstWindow()
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await expect(page.getByRole('heading', { name: 'Budget', exact: true })).toBeVisible()
-    await page.getByLabel('First budget month').fill('2026-09')
+    await chooseMonth(page, 'Budget months', '2026-09')
     const opener = page.getByRole('button', { name: /^Budget Groceries, September 2026/ })
     await opener.click()
     await page.getByLabel('Budgeted amount').fill('321.09')
@@ -62,14 +63,14 @@ test('budgets across months, preserves stale category edits, and reviews histori
     expect((await new AxeBuilder({ page }).setLegacyMode(true).analyze()).violations).toEqual([])
     await page.keyboard.press('Meta+3')
     await expect(page.getByRole('heading', { name: 'Reports', exact: true })).toBeFocused()
-    await page.getByLabel('From', { exact: true }).fill('2026-08')
-    await page.getByLabel('Through', { exact: true }).fill('2026-09')
+    await chooseMonth(page, 'From', '2026-08')
+    await chooseMonth(page, 'Through', '2026-09')
     await expect(page.getByRole('region', { name: 'Historical report' })).toContainText(
       'September 2026',
     )
-    await page.getByLabel('From', { exact: true }).fill('1900-01')
+    await chooseMonth(page, 'From', '1900-01')
     await expect(page.getByRole('alert')).toHaveText('Choose at most 600 months per report.')
-    await page.getByLabel('From', { exact: true }).fill('2026-08')
+    await chooseMonth(page, 'From', '2026-08')
     expect((await new AxeBuilder({ page }).setLegacyMode(true).analyze()).violations).toEqual([])
   } finally {
     await app.close()

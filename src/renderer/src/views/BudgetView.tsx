@@ -1,14 +1,10 @@
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import {
-  monthSchema,
-  type Budget,
-  type Change,
-  type Category,
-  type Allocation,
-} from '../../../shared/contracts'
+import { type Budget, type Change, type Category, type Allocation } from '../../../shared/contracts'
 import { addMonths, calculateBudget, formatMoney, parseMoney } from '../../../engine'
 import { Button } from '@/components/ui/button'
+import { MonthPicker } from '@/components/ui/month-picker'
+import type { BudgetNavigation } from '@/lib/budget-navigation'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import {
@@ -22,10 +18,15 @@ import {
 import { money, currentMonth, monthLabel } from './format'
 import './budget.css'
 type Props = { budget: Budget; onCommand: (changes: Change[], revision: number) => Promise<void> }
-export function BudgetView({ budget, onCommand }: Props) {
-  const [month, setMonth] = useState(currentMonth),
-    [visible, setVisible] = useState(3),
-    [hidden, setHidden] = useState(false)
+export function BudgetView({
+  budget,
+  onCommand,
+  month,
+  setMonth,
+  visible,
+  setVisible,
+}: Props & BudgetNavigation) {
+  const [hidden, setHidden] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [edit, setEdit] = useState<{ allocation: Allocation; revision: number } | null>(null)
   const [category, setCategory] = useState<{ value: Category; revision: number } | null>(null)
@@ -67,50 +68,46 @@ export function BudgetView({ budget, onCommand }: Props) {
     <div className="page-stack">
       <div className="toolbar budget-toolbar">
         <div className="month-navigation">
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Previous month"
-            disabled={month === '0001-01'}
-            onClick={() => setMonth(addMonths(month, -1))}
-          >
-            <ChevronLeft aria-hidden="true" />
-          </Button>
-          <Label htmlFor="budget-month" className="sr-only">
-            First budget month
-          </Label>
-          <Input
-            id="budget-month"
-            type="month"
+          <MonthPicker
             value={month}
-            onChange={(e) => {
-              if (monthSchema.safeParse(e.target.value).success) setMonth(e.target.value)
-            }}
+            through={addMonths(month, shownMonths - 1)}
+            onChange={setMonth}
+            label="Budget months"
           />
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Next month"
-            disabled={month === '9999-12'}
-            onClick={() => setMonth(addMonths(month, 1))}
-          >
-            <ChevronRight aria-hidden="true" />
-          </Button>
-          <Button variant="ghost" onClick={() => setMonth(currentMonth())}>
-            Today
-          </Button>
+          <div className="month-step-controls">
+            <Button
+              variant="outline"
+              disabled={month === '0001-01'}
+              onClick={() => setMonth(addMonths(month, -1))}
+            >
+              <ChevronLeft aria-hidden="true" /> Previous
+            </Button>
+            <Button
+              variant="outline"
+              disabled={month === '9999-12'}
+              onClick={() => setMonth(addMonths(month, 1))}
+            >
+              Next <ChevronRight aria-hidden="true" />
+            </Button>
+            <Button variant="outline" onClick={() => setMonth(currentMonth())}>
+              This month
+            </Button>
+          </div>
         </div>
-        <div className="toolbar">
-          <Label htmlFor="visible-months">Show</Label>
-          <Select
-            id="visible-months"
-            value={visible}
-            onChange={(e) => setVisible(Number(e.target.value))}
-          >
-            <option value={1}>1 month</option>
-            <option value={2}>2 months</option>
-            <option value={3}>3 months</option>
-          </Select>
+        <div className="toolbar budget-options">
+          <div className="month-count" role="group" aria-label="Visible months">
+            {([1, 2, 3] as const).map((count) => (
+              <Button
+                key={count}
+                size="sm"
+                variant={visible === count ? 'default' : 'ghost'}
+                aria-pressed={visible === count}
+                onClick={() => setVisible(count)}
+              >
+                {count} {count === 1 ? 'month' : 'months'}
+              </Button>
+            ))}
+          </div>
           <label className="check-label">
             <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} />{' '}
             Hidden categories
@@ -190,7 +187,7 @@ export function BudgetView({ budget, onCommand }: Props) {
             </caption>
             <thead>
               <tr>
-                <th scope="col" rowSpan={2}>
+                <th scope="col" rowSpan={2} className="sticky-category">
                   Category
                 </th>
                 {months.map((m) => (
@@ -224,7 +221,7 @@ export function BudgetView({ budget, onCommand }: Props) {
                 return (
                   <tbody key={group.id}>
                     <tr className="category-group">
-                      <th colSpan={1 + months.length * 3} scope="rowgroup">
+                      <th scope="rowgroup" className="sticky-category">
                         <button
                           type="button"
                           aria-expanded={!collapsed.has(group.id)}
@@ -240,11 +237,12 @@ export function BudgetView({ budget, onCommand }: Props) {
                           {collapsed.has(group.id) ? '▸' : '▾'} {group.name}
                         </button>
                       </th>
+                      <td colSpan={months.length * 3} />
                     </tr>
                     {!collapsed.has(group.id) &&
                       categories.map((c) => (
                         <tr key={c.id}>
-                          <th scope="row">
+                          <th scope="row" className="sticky-category">
                             <button className="category-name" onClick={() => openCategory(c)}>
                               {c.name}
                             </button>
